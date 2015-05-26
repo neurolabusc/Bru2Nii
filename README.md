@@ -7,9 +7,9 @@ This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI fil
 Provide the name of the Bruker format 'acqp' or 'subject' file you wish to convert. For example 
  Bru2 c:\mydata\subject
  
-##### Usage (Command Line)
+##### Usage (Graphical Interface)
 
-Provide the name of the Bruker format 'acqp' or 'subject' file you wish to convert. For 
+Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert. 
 
 ##### Compile from Source
 
