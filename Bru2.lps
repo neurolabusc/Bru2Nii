@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <Version Value="9"/>
+    <Units Count="3">
+      <Unit0>
+        <Filename Value="Bru2.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="1"/>
+        <CursorPos X="2" Y="2"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="common.inc"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="380"/>
+        <CursorPos X="58" Y="403"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="console.pas"/>
+        <UnitName Value="console"/>
+        <EditorIndex Value="2"/>
+        <CursorPos X="45" Y="2"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit2>
+    </Units>
+    <JumpHistory Count="11" HistoryIndex="10">
+      <Position1>
+        <Filename Value="common.inc"/>
+        <Caret Line="243" Column="21" TopLine="234"/>
+      </Position1>
+      <Position2>
+        <Filename Value="common.inc"/>
+        <Caret Line="244" Column="19" TopLine="234"/>
+      </Position2>
+      <Position3>
+        <Filename Value="common.inc"/>
+        <Caret Line="260" Column="58" TopLine="244"/>
+      </Position3>
+      <Position4>
+        <Filename Value="common.inc"/>
+        <Caret Line="521" Column="68" TopLine="519"/>
+      </Position4>
+      <Position5>
+        <Filename Value="Bru2.lpr"/>
+        <Caret Line="10"/>
+      </Position5>
+      <Position6>
+        <Filename Value="common.inc"/>
+        <Caret Line="527" Column="31" TopLine="525"/>
+      </Position6>
+      <Position7>
+        <Filename Value="common.inc"/>
+        <Caret Line="714" Column="40" TopLine="700"/>
+      </Position7>
+      <Position8>
+        <Filename Value="common.inc"/>
+        <Caret Line="438" Column="81" TopLine="424"/>
+      </Position8>
+      <Position9>
+        <Filename Value="console.pas"/>
+      </Position9>
+      <Position10>
+        <Filename Value="Bru2.lpr"/>
+        <Caret Line="12" Column="32"/>
+      </Position10>
+      <Position11>
+        <Filename Value="common.inc"/>
+        <Caret Line="394" Column="68" TopLine="381"/>
+      </Position11>
+    </JumpHistory>
+  </ProjectSession>
+</CONFIG>
