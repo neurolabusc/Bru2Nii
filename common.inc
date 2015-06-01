@@ -18,6 +18,7 @@ type
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES: integer;
     ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset: single;
     RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
+    ACQ_protocol_name : string[79];
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
     HdrSz : longint; //MUST BE 348
@@ -277,6 +278,7 @@ end;
 function BrClear : TBrukerHdr;
 //reset Bruker format header
 begin
+     result.ACQ_protocol_name:='';
      result.RECO_byte_order_little := false;
      result.RECO_wordtype_bits := 0;
      result.RECO_transposition := 0;
@@ -372,6 +374,15 @@ begin
      result := StrToFloat(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
 end;
 
+function BrGetString (var lFile: TextFile): string;
+begin
+     result := '';
+     if Eof(lFile) then exit;
+     ReadLn(lFile, result);
+     result  := StringReplace(result, '<', '',  [rfReplaceAll, rfIgnoreCase]);
+     result  := StringReplace(result, '>', '',  [rfReplaceAll, rfIgnoreCase]);
+end;
+
 function BrReadMETHOD (fname: string; var BrHdr: TBrukerHdr): boolean;
 var
    lFile: TextFile;
@@ -406,6 +417,8 @@ begin
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
         if AnsiPos('##$', lStr) <> 1 then continue;
+        if AnsiPos('##$ACQ_protocol_name=', lStr) = 1 then
+           BrHdr.ACQ_protocol_name :=  BrGetString(lFile);
         if AnsiPos('##$ACQ_slice_sepn=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.ACQ_slice_sepn);
         if AnsiPos('##$ACQ_grad_matrix=', lStr) = 1 then
@@ -440,7 +453,6 @@ function BrReadRECO (fname: string; var BrHdr: TBrukerHdr): boolean;
 var
     lFile: TextFile;
     lStr :string;
-    lUnused: TVec;
     lVaries: boolean;
 begin
   result := false;
@@ -480,6 +492,7 @@ procedure BrReport(BrHdr: TBrukerHdr; InName, OutName: string);
 begin
      showmsg('Bruker File: '+InName);
      showmsg('NIfTI File: '+OutName);
+     showmsg('ACQ_protocol_name : ' + BrHdr.ACQ_protocol_name);
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
      else
@@ -651,6 +664,9 @@ begin
       NiHdr.dim[0] := 4 //4D data
   else
        NiHdr.dim[0] := 3;
+  if (length(BrHdr.ACQ_protocol_name) > 0) and (length(BrHdr.ACQ_protocol_name) < 80) then
+      for i := 1 to length(BrHdr.ACQ_protocol_name) do
+          NiHdr.descrip[i] := BrHdr.ACQ_protocol_name[i];
   result := true;
 end;
 
