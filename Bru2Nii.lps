@@ -8,7 +8,7 @@
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="1"/>
         <CursorPos X="14" Y="10"/>
-        <UsageCount Value="73"/>
+        <UsageCount Value="74"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
       </Unit0>
@@ -20,8 +20,8 @@
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="main"/>
         <EditorIndex Value="2"/>
-        <CursorPos X="79" Y="13"/>
-        <UsageCount Value="73"/>
+        <CursorPos X="70" Y="2"/>
+        <UsageCount Value="74"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
       </Unit1>
@@ -30,7 +30,7 @@
         <IsPartOfProject Value="True"/>
         <TopLine Value="88"/>
         <CursorPos Y="108"/>
-        <UsageCount Value="72"/>
+        <UsageCount Value="73"/>
       </Unit2>
       <Unit3>
         <Filename Value="convert.pas"/>
@@ -41,8 +41,7 @@
       <Unit4>
         <Filename Value="common.inc"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="567"/>
-        <CursorPos X="24" Y="577"/>
+        <CursorPos X="32" Y="2"/>
         <UsageCount Value="17"/>
         <Loaded Value="True"/>
       </Unit4>
@@ -50,15 +49,15 @@
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="common.inc"/>
-        <Caret Line="572" Column="34" TopLine="569"/>
+        <Caret Line="422" Column="33" TopLine="403"/>
       </Position1>
       <Position2>
         <Filename Value="common.inc"/>
-        <Caret Line="402" Column="78" TopLine="394"/>
+        <Caret Line="628" Column="41" TopLine="614"/>
       </Position2>
       <Position3>
         <Filename Value="common.inc"/>
-        <Caret Line="4" Column="101"/>
+        <Caret Column="107"/>
       </Position3>
       <Position4>
         <Filename Value="common.inc"/>
@@ -78,95 +77,95 @@
       </Position7>
       <Position8>
         <Filename Value="common.inc"/>
-        <Caret Line="628" Column="41" TopLine="614"/>
+        <Caret Line="494" Column="59" TopLine="474"/>
       </Position8>
       <Position9>
         <Filename Value="common.inc"/>
-        <Caret Column="107"/>
+        <Caret Line="561" Column="38" TopLine="550"/>
       </Position9>
       <Position10>
         <Filename Value="common.inc"/>
-        <Caret Line="19" Column="20"/>
+        <Caret Line="735" Column="26" TopLine="715"/>
       </Position10>
       <Position11>
         <Filename Value="common.inc"/>
-        <Caret Line="288" Column="28" TopLine="268"/>
+        <Caret Line="756" Column="4" TopLine="7"/>
       </Position11>
       <Position12>
         <Filename Value="common.inc"/>
-        <Caret Line="421" Column="39" TopLine="402"/>
+        <Caret Line="23" Column="35" TopLine="20"/>
       </Position12>
       <Position13>
         <Filename Value="common.inc"/>
-        <Caret Line="422" Column="33" TopLine="403"/>
+        <Caret Line="37" Column="15" TopLine="27"/>
       </Position13>
       <Position14>
         <Filename Value="common.inc"/>
-        <Caret Line="494" Column="59" TopLine="474"/>
+        <Caret Line="133" Column="15" TopLine="114"/>
       </Position14>
       <Position15>
         <Filename Value="common.inc"/>
-        <Caret Line="561" Column="38" TopLine="550"/>
+        <Caret Line="37" Column="15" TopLine="29"/>
       </Position15>
       <Position16>
         <Filename Value="common.inc"/>
-        <Caret Line="735" Column="26" TopLine="715"/>
+        <Caret Line="7" Column="48"/>
       </Position16>
       <Position17>
         <Filename Value="common.inc"/>
-        <Caret Line="756" Column="4" TopLine="7"/>
+        <Caret Line="528" Column="64" TopLine="508"/>
       </Position17>
       <Position18>
         <Filename Value="common.inc"/>
-        <Caret Line="23" Column="35" TopLine="20"/>
+        <Caret Line="729" Column="40" TopLine="722"/>
       </Position18>
       <Position19>
         <Filename Value="common.inc"/>
-        <Caret Line="37" Column="15" TopLine="27"/>
+        <Caret Line="731" Column="56" TopLine="721"/>
       </Position19>
       <Position20>
         <Filename Value="common.inc"/>
-        <Caret Line="133" Column="15" TopLine="114"/>
+        <Caret Line="755" Column="51" TopLine="736"/>
       </Position20>
       <Position21>
         <Filename Value="common.inc"/>
-        <Caret Line="37" Column="15" TopLine="29"/>
+        <Caret Line="597" Column="85" TopLine="585"/>
       </Position21>
       <Position22>
         <Filename Value="common.inc"/>
-        <Caret Line="7" Column="48"/>
+        <Caret Line="527" Column="59" TopLine="516"/>
       </Position22>
       <Position23>
         <Filename Value="common.inc"/>
-        <Caret Line="528" Column="64" TopLine="508"/>
+        <Caret Line="753" Column="6" TopLine="740"/>
       </Position23>
       <Position24>
         <Filename Value="common.inc"/>
-        <Caret Line="575" Column="35" TopLine="608"/>
+        <Caret Line="226" Column="20" TopLine="217"/>
       </Position24>
       <Position25>
         <Filename Value="common.inc"/>
-        <Caret Line="729" Column="40" TopLine="722"/>
+        <Caret Line="743" Column="19" TopLine="737"/>
       </Position25>
       <Position26>
         <Filename Value="common.inc"/>
-        <Caret Line="731" Column="56" TopLine="721"/>
+        <Caret Line="770" Column="25" TopLine="688"/>
       </Position26>
       <Position27>
         <Filename Value="common.inc"/>
-        <Caret Line="755" Column="51" TopLine="736"/>
+        <Caret Line="740" Column="38" TopLine="731"/>
       </Position27>
       <Position28>
         <Filename Value="common.inc"/>
-        <Caret Line="597" Column="85" TopLine="585"/>
+        <Caret Line="774" Column="59" TopLine="764"/>
       </Position28>
       <Position29>
         <Filename Value="common.inc"/>
-        <Caret Line="527" Column="59" TopLine="516"/>
+        <Caret Line="411" Column="56" TopLine="407"/>
       </Position29>
       <Position30>
         <Filename Value="common.inc"/>
-        <Caret Line="753" Column="6" TopLine="740"/>
+        <Caret Line="3" Column="99"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

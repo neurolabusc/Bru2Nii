@@ -1,5 +1,5 @@
 const
-  kVers = 'Bruker2NIfTI 5/5/2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
+  kVers = 'Bruker2NIfTI 1 June 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
   kNIFTI_XFORM_UNKNOWN = 0;
   kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
 {$IFDEF ENDIAN_BIG}
@@ -529,8 +529,10 @@ var
 begin
   start := MtEye;
   Tranposition := MtEye;
-     if (BrHdr.RECO_transposition = 1) then
-       Tranposition := MtSet(0,1,0,0, 1,0,0,0, 0,0,1,0)   //swap read-phase
+     if (BrHdr.RECO_transposition = 1) then begin
+      SwapDims(NiHdr.dim[1],NiHdr.dim[2], NiHdr.pixdim[1],NiHdr.pixdim[2]);
+      Tranposition := MtSet(0,1,0,0, 1,0,0,0, 0,0,1,0)   //swap read-phase
+     end
      else if (BrHdr.RECO_transposition = 2) then
        Tranposition := MtSet(1,0,0,0, 0,0,1,0, 0,1,0,0) //swap phase-slice
      else if (BrHdr.RECO_transposition = 3) then
@@ -635,7 +637,7 @@ begin
     NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] ; //distance between slices, x10 FOV is CM not MM
   end else
     NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
-  SwapDims(NiHdr.dim[1],NiHdr.dim[2], NiHdr.pixdim[1],NiHdr.pixdim[2]);
+  //
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
     NiHdr.dim[3] := BrHdr.ACQ_NI;
@@ -770,7 +772,10 @@ var
    lSearchRec: TSearchRec;
    lSearchDir,lFileName,lOutFilename, lS: String;
 begin
-  lSearchDir := extractfiledir(FName) ;
+  if DirectoryExists(FName) then
+     lSearchDir := FName
+  else
+      lSearchDir := extractfiledir(FName) ;
   lOK := 0;
   lFileName := lSearchDir+pathdelim+'acqp';
   if fileexists(lFilename) then begin
