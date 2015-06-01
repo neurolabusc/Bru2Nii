@@ -16,7 +16,7 @@ type
   TBrukerHdr = Record
     RECO_byte_order_little: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES: integer;
-    ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, ACQ_slice_offset: single;
+    ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset: single;
     RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
@@ -130,7 +130,7 @@ begin
     slice_start:=0;
     for lInc := 1 to 7 do
        pixdim[linc]:= 1.0;
-    vox_offset:= 0.0;
+    vox_offset:= 352;
     scl_slope := 1.0;
     scl_inter:= 0.0;
     slice_end:= 0;
@@ -288,7 +288,7 @@ begin
      result.ACQ_slice_thick := 0;
      result.ACQ_read_offset := 0;
      result.ACQ_phase1_offset := 0;
-     result.ACQ_slice_offset := 0;
+     result.METHOD_slice_offset := 0;
      result.RECO_size:= BrClearTVec;
      result.RECO_offset := BrClearTVec;
      result.RECO_fov := BrClearTVec;
@@ -372,6 +372,26 @@ begin
      result := StrToFloat(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
 end;
 
+function BrReadMETHOD (fname: string; var BrHdr: TBrukerHdr): boolean;
+var
+   lFile: TextFile;
+   lStr :string;
+   lUnused: TVec;
+begin
+  result := false;
+  if not fileexists(fname) then exit;
+  assignfile(lFile,fname);
+  reset(lFile);
+  while not Eof(lFile) do begin
+        ReadLn(lFile, lStr);
+        //METHOD_slice_offset
+        if AnsiPos('##$PVM_SPackArrSliceOffset', lStr) = 1 then
+           BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
+  end;
+  result := true;
+  closefile(lFile);
+end;
+
 function BrReadACQP (fname: string; var BrHdr: TBrukerHdr): boolean;
 //read Bruker format acqp file
 var
@@ -394,8 +414,8 @@ begin
            BrHdr.ACQ_read_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$ACQ_phase1_offset=', lStr) = 1 then
            BrHdr.ACQ_phase1_offset := BrGetArray(lFile, '(1)',lUnused );
-        if AnsiPos('##$ACQ_slice_offset=', lStr) = 1 then
-           BrHdr.ACQ_slice_offset := BrGetArray(lFile, '(1)',lUnused );
+        //if AnsiPos('##$ACQ_slice_offset=', lStr) = 1 then
+        //   BrHdr.ACQ_slice_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$ACQ_repetition_time=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.ACQ_repetition_time);
         if AnsiPos('##$ACQ_slice_thick', lStr) = 1 then
@@ -472,7 +492,7 @@ begin
       f2str(BrHdr.ACQ_grad_matrix.v[7])+' '+f2str(BrHdr.ACQ_grad_matrix.v[8])+' '+f2str(BrHdr.ACQ_grad_matrix.v[9])+']');
      showmsg(' Sepn (Thick+Gap) : '+f2str(BrHdr.ACQ_slice_sepn.v[1]));
      showmsg(' Slice Thick : '+f2str(BrHdr.ACQ_slice_thick));
-     showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.ACQ_slice_offset));
+     showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.METHOD_slice_offset));
 
      showmsg(' RECO_offset : '+f2str(BrHdr.RECO_offset.v[1])+' '+f2str(BrHdr.RECO_offset.v[2])+' '+f2str(BrHdr.RECO_offset.v[3]));
      showmsg(' Repetition Time : '+f2str(BrHdr.ACQ_repetition_time.v[1]) );
@@ -498,29 +518,30 @@ end;
 
 procedure MtReport (title: string; mt: TMat);
 begin
-  showmsg(title+' : ['+f2str(mt[1,1])+' '+f2str(mt[1,2])+' '+f2str(mt[1,3])+' '+f2str(mt[1,4])+'; '
+  showmsg(title+' = ['+f2str(mt[1,1])+' '+f2str(mt[1,2])+' '+f2str(mt[1,3])+' '+f2str(mt[1,4])+'; '
     +f2str(mt[2,1])+' '+f2str(mt[2,2])+' '+f2str(mt[2,3])+' '+f2str(mt[2,4])+'; '
     +f2str(mt[3,1])+' '+f2str(mt[3,2])+' '+f2str(mt[3,3])+' '+f2str(mt[3,4])+'; 0, 0, 0, 1] ');
 end;
 
-procedure BrMat (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lVerbose: boolean);
+procedure BrMat (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolean);
 var
-  rotn, trans, swaps, ft2mm, recoff, perl2nii, start,so_far: TMat;
+  rotn, Tranposition,Translations, swapxy, ft2mm, recoff, perl2nii, start,so_far: TMat;
 begin
   start := MtEye;
+  Tranposition := MtEye;
      if (BrHdr.RECO_transposition = 1) then
-       start := MtSet(0,1,0,0, 1,0,0,0, 0,0,1,0)   //swap read-phase
+       Tranposition := MtSet(0,1,0,0, 1,0,0,0, 0,0,1,0)   //swap read-phase
      else if (BrHdr.RECO_transposition = 2) then
-       start := MtSet(1,0,0,0, 0,0,1,0, 0,1,0,0) //swap phase-slice
+       Tranposition := MtSet(1,0,0,0, 0,0,1,0, 0,1,0,0) //swap phase-slice
      else if (BrHdr.RECO_transposition = 3) then
-       start := MtSet(0,0,1,0, 0,1,0,0, 1,0,0,0) //swap read-slice
+       Tranposition := MtSet(0,0,1,0, 0,1,0,0, 1,0,0,0) //swap read-slice
      else if (BrHdr.RECO_transposition <> 0) then begin
        showmsg('Need to handle RECO transposition');
      end;
-  swaps := MtEye;
-  //swaps[1,1] := 1;
-  swaps[2,2] := -1;
-  swaps[3,3] := -1;
+  swapxy := MtEye;
+  swapxy[1,1] := -1;
+  swapxy[2,2] := -1;
+  //swapxy[3,3] := -1;
   //recon offset
   recoff := MtEye;
   recoff[1,4] := BrHdr.RECO_offset.v[1]; //Read
@@ -536,31 +557,41 @@ begin
   ft2mm[2,4] := (NiHdr.dim[2]+1)/2 * -NiHdr.pixdim[2];
   ft2mm[3,4] := (NiHdr.dim[3]+1)/2 * -NiHdr.pixdim[3];
   //translations
-  trans := MtEye;
-  trans[1,4] := BrHdr.ACQ_read_offset; //Read
-  trans[2,4] := BrHdr.ACQ_phase1_offset; //Phase
-  trans[3,4] := BrHdr.ACQ_slice_offset/10; //Slice
+  Translations := MtEye;
+  Translations[1,4] := BrHdr.ACQ_read_offset; //Read
+  Translations[2,4] := BrHdr.ACQ_phase1_offset; //Phase
+  Translations[3,4] := BrHdr.METHOD_slice_offset; //Slice
   //gradients matrix - transposed!
     rotn := MtSet(BrHdr.ACQ_grad_matrix.v[1],BrHdr.ACQ_grad_matrix.v[4],BrHdr.ACQ_grad_matrix.v[7],0,
     BrHdr.ACQ_grad_matrix.v[2],BrHdr.ACQ_grad_matrix.v[5],BrHdr.ACQ_grad_matrix.v[8],0,
     BrHdr.ACQ_grad_matrix.v[3],BrHdr.ACQ_grad_matrix.v[6],BrHdr.ACQ_grad_matrix.v[9],0);
   //pvconv.pl X,Y,Z is L->R,I->S,P->A, but NIfTI is explicitly L->R,P->A,I->S
   //perl2nii :=  MtSet(1,0,0,0, 0,0,1,0, 0,-1,0,0);
-  perl2nii :=  MtSet(1,0,0,0, 0,0,1,0, 0,1,0,0);
-  so_far := MtMult(rotn,trans);
-  so_far := MtMult(so_far,swaps);
-  so_far := MtMult(so_far,ft2mm);
-  so_far := MtMult(so_far, recoff);
-  so_far := MtMult(so_far, start);
-    so_far := MtMult(so_far, perl2nii);
+
+  so_far := MtMult(recoff, Tranposition);
+  so_far := MtMult(ft2mm, so_far);
+  so_far := MtMult(swapxy, so_far);
+  so_far := MtMult(Translations, so_far);
+  so_far := MtMult(rotn,so_far);
+  if lFOVx10 then begin
+   perl2nii :=  MtSet(-10,0,0,0, 0,0,10,0, 0,10,0,0);
+   NiHdr.pixdim[1] := NiHdr.pixdim[1] * 10;
+   NiHdr.pixdim[2] := NiHdr.pixdim[2] * 10;
+   NiHdr.pixdim[3] := NiHdr.pixdim[3] * 10;
+  end else
+      perl2nii :=  MtSet(-1,0,0,0, 0,0,1,0, 0,1,0,0);
+  so_far := MtMult(perl2nii,so_far);
   if lVerbose then begin
-    MtReport('rotn',rotn);
-    MtReport('trans',trans);
-    MtReport('swaps',swaps);
-    MtReport('ft2mm',ft2mm);
+    MtReport('start',Tranposition);
     MtReport('recoff',recoff);
-    MtReport('start',start);
+    MtReport('ft2mm',ft2mm);
+    MtReport('swaps',swapxy);
+    MtReport('trans',Translations);
+    MtReport('rotn',rotn);
     MtReport('perl2nii',perl2nii);
+    showmsg('vx2mm =  rotn * trans * swaps * ft2mm * recoff * start');
+    showmsg('nii =  perl2nii * rotn * trans * swaps * ft2mm * recoff * start');
+
     MtReport('NIfTI',so_far);
   end;
   NiHdr.sform_code:= kNIFTI_XFORM_SCANNER_ANAT;
@@ -569,7 +600,7 @@ begin
   NiHdr.srow_z[0] := so_far[3,1]; NiHdr.srow_z[1] := so_far[3,2]; NiHdr.srow_z[2] := so_far[3,3]; NiHdr.srow_z[3] := so_far[3,4];
 end;
 
-function BrHdr2NII (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; ImgBytes: integer; lFOVx10: boolean; var FName: string): boolean;
+function BrHdr2NII (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; ImgBytes: integer; var FName: string): boolean;
 //convert Bruker Header format to NIfTI format
 var
     i: integer;
@@ -598,15 +629,12 @@ begin
           NiHdr.pixdim[i] := 1;
           showmsg('Warning: FOV does not describe all dimensions (localizer scan?) '+FName);
         end else
-            NiHdr.pixdim[i] := BrHdr.RECO_fov.v[i]/BrHdr.RECO_size.v[i] ;
+            NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
   end;
   if BrHdr.RECO_size.v[3]> 0 then begin
-    NiHdr.pixdim[3] := BrHdr.RECO_fov.v[3]/BrHdr.RECO_size.v[3] ; //distance between slices
+    NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] ; //distance between slices, x10 FOV is CM not MM
   end else
-    NiHdr.pixdim[3] := BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
-  if lFOVx10 then
-     for i := 1 to 3 do
-       NiHdr.pixdim[i] := NiHdr.pixdim[i] * 10;
+    NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
   SwapDims(NiHdr.dim[1],NiHdr.dim[2], NiHdr.pixdim[1],NiHdr.pixdim[2]);
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
@@ -705,7 +733,7 @@ end;
 
 procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose: boolean);
 var
-    lBaseDir, lRecoFName, lImgFName, lAcqpFName: string;
+    lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName: string;
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
@@ -714,17 +742,23 @@ begin
   if not BrFindFile(lBaseDir,lRecoFName,'reco',true) then exit;
   if not BrFindFile(lBaseDir,lAcqpFName,'acqp',true) then exit;
   if not BrFindFile(lBaseDir,lImgFName,'2dseq',true) then exit;
+  if not BrFindFile(lBaseDir,lMethodFName,'method',true) then begin
+     //exit;
+
+  end;
   ImgBytes := FSize(lImgFName);
-  if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
   BrHdr := BrClear;
   if not BrReadACQP(lAcqpFName, BrHdr) then exit;
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
+  BrReadMETHOD(lMethodFName, BrHdr);
   if lOutFName = '' then
   lOutFName := ExtractFilePath(lRecoFName)+Extractfilename(ExtractFileDir(lRecoFName))+'.nii';
   lOutFName := UniqueFilename(lOutFName);
   if lVerbose then BrReport(BrHdr, lRecoFName, lOutFName);
-  if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lFOVx10, lRecoFName) then exit;
-  BrMat (BrHdr, NiHdr, lVerbose);
+  if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
+  BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
+    if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
+
   SaveNiHdr (lOutFName, NiHdr);
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr);
 end;

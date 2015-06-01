@@ -61,7 +61,7 @@ begin
      decimalseparator := '.';
      Showmsg(kVers);
      {$ifndef fpc} DragAcceptFiles(Handle, True); {$endif}
-     BrConvertBatch ('/Users/rorden/Downloads/bruker2/6/acqp','', FOVx10Check.checked, true);
+     //BrConvertBatch ('/Users/rorden/Downloads/100603/10/acqp','', FOVx10Check.checked, true);
 end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of String);
