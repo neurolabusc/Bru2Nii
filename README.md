@@ -2,11 +2,21 @@
 
 This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. It includes both a drag-and-drop graphical interface (Bru2Nii) as well as a command line tool (Bru2). The compiled tools run on Windows, Linux and OSX without requiring any other files to be installed. The source code can be built using Lazarus without any other tools required. This project is inspired by the Perl script pvconv (http://pvconv.sourceforge.net).
 
+You can find pre-compiled binary executables in the 'compiled' folder, or if you wish you can re-compile your own copy. 
+
 ##### Usage (Command Line)
 
-Provide the name of the Bruker format 'acqp' or 'subject' file you wish to convert. For example 
- Bru2 c:\mydata\subject
- 
+Provide the name of the Bruker format 'acqp' or 'subject' file you wish to convert. Here are a few examples for Windows
+ * Convert all data from a subject `Bru2 c:\mydata\subject`
+ * Convert single session `Bru2 c:\mydata\10\acqp`
+ * Convert, appending protocol name to output filename `Bru2 -p c:\mydata\10\acqp`
+ * Convert to specific folder `Bru2 -o c:\output c:\mydata\10\acqp`
+Here are examples for Unix
+ * Convert all data from a subject `Bru2 /Users/cr/dir/subject`
+ * Convert single session `Bru2 /Users/cr/dir/acqp`
+ * Convert, appending protocol name to output filename `Bru2 -p /Users/cr/dir/acqp`
+ * Convert to specific folder `Bru2 -o /Users/cr/dir2/out /Users/cr/dir/acqp`
+    
 ##### Usage (Graphical Interface)
 
 Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert. 
