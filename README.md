@@ -32,7 +32,7 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Versions
 
-5May2015 : 
+2June2015 : 
  - Original Beta version
  - Need examples to support images with multiple echoes (e.g. separate volumes from T2+PD acquisition
  - Need to get examples for setting origin and rotation correctly
