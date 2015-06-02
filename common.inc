@@ -1,5 +1,5 @@
 const
-  kVers = 'Bruker2NIfTI 1 June 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
+  kVers = 'Bruker2NIfTI 2 June 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
   kNIFTI_XFORM_UNKNOWN = 0;
   kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
 {$IFDEF ENDIAN_BIG}
@@ -14,7 +14,7 @@ type
   end;
   TMat = array[1..4, 1..4] of single;
   TBrukerHdr = Record
-    RECO_byte_order_little: boolean;
+    RECO_byte_order_little, RECO_transposition_varies: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES: integer;
     ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset: single;
     RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
@@ -55,20 +55,21 @@ type
     srow_z: array[0..3]of single;
     intent_name: array[1..16] of ansichar;
     magic: longint;
-    unused: longint;
+    unused: longint; //WARNING: this is not actually part of the NIfTI header, but pads 348-byte header to be 352 bytes (evenly divisible by 8, required for NII files)
 end; //TNiHdr Header Structure
 
 function MtZero: TMat;
+//4x4 zero matrix, in matlab "zeros(4,4)"
 var
   r,c: integer;
 begin
   for r := 1 to 4 do
     for c := 1 to 4 do
       result[r,c] := 0;
-
 end;
 
 function MtEye: TMat;
+//4x4 identity matrix, in matlab "eye(4)"
 var
   i: integer;
 begin
@@ -78,6 +79,7 @@ begin
 end;
 
 function MtMult (a,b: TMat):  TMat;
+//multiply two 4x4 matrices (not commutative: order matters), in matlab "a * b"
 var
   i,j,k:  integer;
 begin
@@ -89,8 +91,9 @@ begin
 end;
 
 function MtSet (a,b,c,d, e,f,g,h, i,j,k,l: single):  TMat;
+//define a 4x4 matrix,  in Matlab [a,b,c,d; e,f,g,h; i,j,k,l; 0 0 0 1]
 begin
-  result := MtEye;
+  result := MtEye; //set final row to 0,0,0,1
   result[1,1] := a;
   result[1,2] := b;
   result[1,3] := c;
@@ -106,6 +109,7 @@ begin
 end;
 
 procedure ClearHdr (var lHdr: TNiHdr);
+//create empty NIfTI header
 var
  lInc: integer;
 begin
@@ -185,6 +189,7 @@ begin
 end;
 
 function FSize (lFName: String): longint;
+//report size (in bytes) of a file
 var SearchRec: TSearchRec;
 begin
   FSize := 0;
@@ -195,6 +200,7 @@ begin
 end;
 
 procedure SaveNiHdr (lHdrName: string; lNiHdr: TNiHdr);
+//save 348 byte NIfTI header
 var
 lF: file;
 lHdr: TNiHdr;
@@ -267,7 +273,8 @@ begin
      end else result := true;
 end;
 
-function  BrClearTVec: TVec;
+function  BrVecZero: TVec;
+//zero a 4-item vector, Matlab zeros(4,1)
 var
    i: integer;
 begin
@@ -278,6 +285,7 @@ end;
 function BrClear : TBrukerHdr;
 //reset Bruker format header
 begin
+     result.RECO_transposition_varies := false;
      result.ACQ_protocol_name:='';
      result.RECO_byte_order_little := false;
      result.RECO_wordtype_bits := 0;
@@ -291,16 +299,17 @@ begin
      result.ACQ_read_offset := 0;
      result.ACQ_phase1_offset := 0;
      result.METHOD_slice_offset := 0;
-     result.RECO_size:= BrClearTVec;
-     result.RECO_offset := BrClearTVec;
-     result.RECO_fov := BrClearTVec;
-     result.ACQ_slice_sepn := BrClearTVec;
-     result.ACQ_repetition_time := BrClearTVec;
-     result.ACQ_grad_matrix := BrClearTVec;
+     result.RECO_size:= BrVecZero;
+     result.RECO_offset := BrVecZero;
+     result.RECO_fov := BrVecZero;
+     result.ACQ_slice_sepn := BrVecZero;
+     result.ACQ_repetition_time := BrVecZero;
+     result.ACQ_grad_matrix := BrVecZero;
 end;
 
-//BrHdr.RECO_transposition  := round(BrArrayVaries(lFile, '(1)',lVaries ));
 function BrArrayVaries(var lFile: TextFile; lFname: string; var lVaries: boolean): single;
+//return first value in array - generate error if different elements of array have different values
+// This helps detect if a single Bruker image is composed of orthogonal slices (coronal, sagittal, axial)
 const
   delims = [Chr(9), ' '];
 var
@@ -315,12 +324,10 @@ begin
      prev := 0;
      n := 0;
      for i := 1 to length(str) do begin
-         //if (str[i] = ' ') or (i = length(str)) then begin//
          if (str[i] in delims) or (i = length(str))  then begin
              if (i-prev) > 0 then begin
                v := strtofloat(trim(Copy(str, prev + 1, i - prev)));
                n := n + 1;
-               //showmsg(inttostr(n)+' '+floattostr(v));
                if n = 1 then
                   result := v
                else begin
@@ -331,8 +338,8 @@ begin
             prev := i;
          end;
      end;
-     if lVaries then
-        showmsg('WARNING: RECO_transposition varies: unable to convert to NIfTI (localizer scan?) '+lFName);
+     //if lVaries then
+     //   showmsg('WARNING: RECO_transposition varies: unable to convert to NIfTI (localizer scan?) '+lFName);
 end;
 
 function BrGetArray(var lFile: TextFile;  lStr: string; var lRA: TVec): single;
@@ -375,15 +382,25 @@ begin
 end;
 
 function BrGetString (var lFile: TextFile): string;
+//extract string from Bruker header file, e.g. "<T1 localizer>" becomes "T1_localizer"
+const
+  InvalidChars : set of char =
+    [',','.','/','!','@','#','$','%','^','&','*','''','"',';','_','(',')',':','|','[',']'];
+var
+   c: char;
 begin
      result := '';
      if Eof(lFile) then exit;
      ReadLn(lFile, result);
      result  := StringReplace(result, '<', '',  [rfReplaceAll, rfIgnoreCase]);
      result  := StringReplace(result, '>', '',  [rfReplaceAll, rfIgnoreCase]);
+     //next: remove symbols that are incompatible or confusing with a filename
+     for c in InvalidChars do
+         result  := StringReplace(result, c, '_',  [rfReplaceAll, rfIgnoreCase])
 end;
 
 function BrReadMETHOD (fname: string; var BrHdr: TBrukerHdr): boolean;
+//read Bruker format Method file
 var
    lFile: TextFile;
    lStr :string;
@@ -395,7 +412,6 @@ begin
   reset(lFile);
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
-        //METHOD_slice_offset
         if AnsiPos('##$PVM_SPackArrSliceOffset', lStr) = 1 then
            BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
   end;
@@ -427,8 +443,6 @@ begin
            BrHdr.ACQ_read_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$ACQ_phase1_offset=', lStr) = 1 then
            BrHdr.ACQ_phase1_offset := BrGetArray(lFile, '(1)',lUnused );
-        //if AnsiPos('##$ACQ_slice_offset=', lStr) = 1 then
-        //   BrHdr.ACQ_slice_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$ACQ_repetition_time=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.ACQ_repetition_time);
         if AnsiPos('##$ACQ_slice_thick', lStr) = 1 then
@@ -453,7 +467,6 @@ function BrReadRECO (fname: string; var BrHdr: TBrukerHdr): boolean;
 var
     lFile: TextFile;
     lStr :string;
-    lVaries: boolean;
 begin
   result := false;
   if not fileexists(fname) then exit;
@@ -467,7 +480,7 @@ begin
         if AnsiPos('##$RECO_wordtype=_16BIT_SGN_INT', lStr) = 1 then
            BrHdr.RECO_wordtype_bits := 16;
         if AnsiPos('##$RECO_transposition=', lStr) = 1 then
-           BrHdr.RECO_transposition  := round(BrArrayVaries(lFile, fname,lVaries ));
+           BrHdr.RECO_transposition  := round(BrArrayVaries(lFile, fname, BrHdr.RECO_transposition_varies ));
         if AnsiPos('##$RECO_byte_order=littleEndian', lStr) = 1 then
            BrHdr.RECO_byte_order_little:= true;
         if AnsiPos('##$RECO_size=', lStr) = 1 then
@@ -487,11 +500,12 @@ begin
      result := FloatToStrF(f, ffGeneral, 8, 4);
 end;
 
-procedure BrReport(BrHdr: TBrukerHdr; InName, OutName: string);
+procedure BrReport(BrHdr: TBrukerHdr; InName, OutName: string; Verbose: boolean);
 //provide text details of Bruker Header
 begin
-     showmsg('Bruker File: '+InName);
-     showmsg('NIfTI File: '+OutName);
+     showmsg('Creating NIfTI: '+OutName);
+     if not Verbose then exit;
+     showmsg('Bruker Source: '+InName);
      showmsg('ACQ_protocol_name : ' + BrHdr.ACQ_protocol_name);
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
@@ -506,7 +520,6 @@ begin
      showmsg(' Sepn (Thick+Gap) : '+f2str(BrHdr.ACQ_slice_sepn.v[1]));
      showmsg(' Slice Thick : '+f2str(BrHdr.ACQ_slice_thick));
      showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.METHOD_slice_offset));
-
      showmsg(' RECO_offset : '+f2str(BrHdr.RECO_offset.v[1])+' '+f2str(BrHdr.RECO_offset.v[2])+' '+f2str(BrHdr.RECO_offset.v[3]));
      showmsg(' Repetition Time : '+f2str(BrHdr.ACQ_repetition_time.v[1]) );
      showmsg(' NI (images per TR, slices): '+inttostr(BrHdr.ACQ_NI));
@@ -530,6 +543,7 @@ begin
 end;
 
 procedure MtReport (title: string; mt: TMat);
+//display a 4x4 matrix
 begin
   showmsg(title+' = ['+f2str(mt[1,1])+' '+f2str(mt[1,2])+' '+f2str(mt[1,3])+' '+f2str(mt[1,4])+'; '
     +f2str(mt[2,1])+' '+f2str(mt[2,2])+' '+f2str(mt[2,3])+' '+f2str(mt[2,4])+'; '
@@ -537,10 +551,10 @@ begin
 end;
 
 procedure BrMat (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolean);
+//Generate NIfTI spatial transformation matrix from Bruker Header
 var
-  rotn, Tranposition,Translations, swapxy, ft2mm, recoff, perl2nii, start,so_far: TMat;
+  rotn, Tranposition,Translations, swapxy, ft2mm, recoff, perl2nii, so_far: TMat;
 begin
-  start := MtEye;
   Tranposition := MtEye;
      if (BrHdr.RECO_transposition = 1) then begin
       SwapDims(NiHdr.dim[1],NiHdr.dim[2], NiHdr.pixdim[1],NiHdr.pixdim[2]);
@@ -556,7 +570,6 @@ begin
   swapxy := MtEye;
   swapxy[1,1] := -1;
   swapxy[2,2] := -1;
-  //swapxy[3,3] := -1;
   //recon offset
   recoff := MtEye;
   recoff[1,4] := BrHdr.RECO_offset.v[1]; //Read
@@ -580,14 +593,13 @@ begin
     rotn := MtSet(BrHdr.ACQ_grad_matrix.v[1],BrHdr.ACQ_grad_matrix.v[4],BrHdr.ACQ_grad_matrix.v[7],0,
     BrHdr.ACQ_grad_matrix.v[2],BrHdr.ACQ_grad_matrix.v[5],BrHdr.ACQ_grad_matrix.v[8],0,
     BrHdr.ACQ_grad_matrix.v[3],BrHdr.ACQ_grad_matrix.v[6],BrHdr.ACQ_grad_matrix.v[9],0);
-  //pvconv.pl X,Y,Z is L->R,I->S,P->A, but NIfTI is explicitly L->R,P->A,I->S
-  //perl2nii :=  MtSet(1,0,0,0, 0,0,1,0, 0,-1,0,0);
-
   so_far := MtMult(recoff, Tranposition);
   so_far := MtMult(ft2mm, so_far);
   so_far := MtMult(swapxy, so_far);
   so_far := MtMult(Translations, so_far);
   so_far := MtMult(rotn,so_far);
+  //The perl2nii transforms spatial coordinates to NIfTI convention
+  // pvconv.pl matrix dimensions X,Y,Z is L->R,I->S,P->A, but NIfTI is explicitly L->R,P->A,I->S
   if lFOVx10 then begin
    perl2nii :=  MtSet(-10,0,0,0, 0,0,10,0, 0,10,0,0);
    NiHdr.pixdim[1] := NiHdr.pixdim[1] * 10;
@@ -596,7 +608,7 @@ begin
   end else
       perl2nii :=  MtSet(-1,0,0,0, 0,0,1,0, 0,1,0,0);
   so_far := MtMult(perl2nii,so_far);
-  if lVerbose then begin
+  if lVerbose then begin //display transformation values
     MtReport('start',Tranposition);
     MtReport('recoff',recoff);
     MtReport('ft2mm',ft2mm);
@@ -606,7 +618,6 @@ begin
     MtReport('perl2nii',perl2nii);
     showmsg('vx2mm =  rotn * trans * swaps * ft2mm * recoff * start');
     showmsg('nii =  perl2nii * rotn * trans * swaps * ft2mm * recoff * start');
-
     MtReport('NIfTI',so_far);
   end;
   NiHdr.sform_code:= kNIFTI_XFORM_SCANNER_ANAT;
@@ -650,7 +661,6 @@ begin
     NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] ; //distance between slices, x10 FOV is CM not MM
   end else
     NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
-  //
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
     NiHdr.dim[3] := BrHdr.ACQ_NI;
@@ -670,9 +680,8 @@ begin
   result := true;
 end;
 
-
 procedure swap4i(var s : LongInt);
-//swap byte order for 32-bit integer
+//swap byte order of 32-bit integer, big <-> little endian
 type
   swaptype = packed record
     case byte of
@@ -691,7 +700,7 @@ begin
 end; //proc swap4
 
 procedure Swap32(p: pointer; ImgBytes: integer);
-//swap array filled with 32-bit integers
+//swap byte order of 32-bit integer array, big <-> little endian
 type
 LongIntRA = array [1..1] of LongInt;
 LongIntP = ^LongIntRA;
@@ -705,7 +714,8 @@ begin
          swap4i(lp^[i]);
 end;
 
-procedure Swap16(p: pointer; ImgBytes: integer); //swap array filled with 16-bit integers
+procedure Swap16(p: pointer; ImgBytes: integer);
+//swap array filled with 16-bit integers, big <-> little endian
 type
 WordRA = array [1..1] of Word;
 Wordp = ^WordRA;
@@ -720,6 +730,7 @@ begin
 end;
 
 procedure CpyImg (lRawFName, lNiiFName: string; ImgBytes: integer; BrHdr: TBrukerHdr);
+//copy image data from Bruker 2dseq file to NIfTI .nii file: forces native byte order
 var
   lOutF,lInF: File of byte;
   p: Pointer;
@@ -749,7 +760,13 @@ begin
   freemem(p, ImgBytes);
 end;
 
-procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose: boolean);
+function AppendFName (FName, AppendStr: String): string;
+begin
+    result := extractfilepath(FName)+AppendStr+extractfilename(FName);
+end;
+
+procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
+//convert Bruker file to NIfTI
 var
     lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName: string;
     BrHdr: TBrukerHdr;
@@ -760,51 +777,72 @@ begin
   if not BrFindFile(lBaseDir,lRecoFName,'reco',true) then exit;
   if not BrFindFile(lBaseDir,lAcqpFName,'acqp',true) then exit;
   if not BrFindFile(lBaseDir,lImgFName,'2dseq',true) then exit;
-  if not BrFindFile(lBaseDir,lMethodFName,'method',true) then begin
-     //exit;
-
-  end;
+  showmsg('');
+  BrFindFile(lBaseDir,lMethodFName,'method',true); //optional - do not exit if missing
   ImgBytes := FSize(lImgFName);
   BrHdr := BrClear;
   if not BrReadACQP(lAcqpFName, BrHdr) then exit;
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
   BrReadMETHOD(lMethodFName, BrHdr);
-  if lOutFName = '' then
-  lOutFName := ExtractFilePath(lRecoFName)+Extractfilename(ExtractFileDir(lRecoFName))+'.nii';
-  lOutFName := UniqueFilename(lOutFName);
-  if lVerbose then BrReport(BrHdr, lRecoFName, lOutFName);
-  if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
-  BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
-    if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
 
+  if lOutFName = '' then
+    lOutFName := ExtractFilePath(lRecoFName)+Extractfilename(ExtractFileDir(lRecoFName))+'.nii';
+   if AppendProtocolName then
+      lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
+  lOutFName := UniqueFilename(lOutFName);
+  if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
+  if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
+  if (BrHdr.RECO_transposition_varies)  then begin
+     showmsg('WARNING: slices have different orientations (can not create a NIfTI volume, probably a localizer scan): '+ lImgFName);
+     if OnlyConvert3D then
+        exit;
+  end;
+  BrReport(BrHdr, lRecoFName, lOutFName, lVerbose);
+  BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
   SaveNiHdr (lOutFName, NiHdr);
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr);
 end;
 
-procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose: boolean);
+procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
 //convert a Bruker format file
 var
    lOK: integer;
    lSearchRec: TSearchRec;
-   lSearchDir,lFileName,lOutFilename, lS: String;
+   lParentDirACQP, lSearchDir,lFileName,lOutFilename, lS: String;
 begin
   if DirectoryExists(FName) then
      lSearchDir := FName
   else
       lSearchDir := extractfiledir(FName) ;
   lOK := 0;
+  //1st: look for acqp in current folder - user specified acqp or method file
   lFileName := lSearchDir+pathdelim+'acqp';
   if fileexists(lFilename) then begin
    if length(OutFName) < 1 then
       lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
    else
       lOutFilename :=  OutFName+ExtractFileName(lSearchDir)+'.nii';
-     inc(lOK);
-     BrConvert (lFileName,lOutFilename, FOVx10, lVerbose);
-     lS := extractfilename (FName);
-     if (AnsiPos('acqp', lS) = 1) or (AnsiPos('2dseq', lS) = 1) or(AnsiPos('reco', lS) = 1) then
+   inc(lOK);
+   BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
+   lS := extractfilename (FName);
+   if (AnsiPos('acqp', lS) = 1) then
         exit; //quit: batch convert 'subject' files, not single images 'acqp'
   end;
+  //2nd: look for 2dseq in current folder - e.g. user specified 2dseq or reco file
+  lFileName := lSearchDir+pathdelim+'2dseq';
+  if fileexists(lFilename) then begin
+      lParentDirACQP := extractfilepath(extractfiledir(lSearchDir))+'acqp';
+      if fileexists(lParentDirACQP) then begin
+         lSearchDir := extractfiledir(lParentDirACQP) ;
+         if length(OutFName) < 1 then
+            lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
+         else
+            lOutFilename :=  OutFName+ExtractFileName(lSearchDir)+'.nii';
+         inc(lOK);
+         BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
+      end;
+  end;
+  //3rd last resort: assume we are in subject folder and look for acqp in sub-directors
   if FindFirst(lSearchDir+pathdelim+'*', faDirectory, lSearchRec) = 0 then begin
    repeat  //open each folder in succession
            if (lSearchRec.Name <> '.') and (lSearchRec.Name <> '..') and (( lSearchRec.Attr and faDirectory) <> 0) then begin
@@ -815,7 +853,7 @@ begin
                  else
                      lOutFilename :=  OutFName+lSearchRec.Name+'.nii';
                inc(lOK);
-               BrConvert (lFileName,lOutFilename, FOVx10, lVerbose);
+               BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
               end;
            end;
      until (FindNext(lSearchRec) <> 0);

@@ -29,8 +29,10 @@ begin
   writeln(' Converts Bruker "subject" or "acqp" MRI images');
   writeln('Options:');
   writeln(' -a actual size (otherwise x10 scale so animals match human)');
-  writeln(' -o output filename');
+  writeln(' -f force conversion of localizers images (multiple slice orientations)');
   writeln(' -h show these help instructions');
+  writeln(' -o output filename');
+  writeln(' -p append protocol name to output filename');
   writeln(' -v verbose conversion comments');
   writeln('Examples:');
 {$IFDEF UNIX}
@@ -50,27 +52,37 @@ procedure ProcessParamStr;
 var
   inFname, outFname, cmd: string;
   i: integer;
-  FOVx10, verbose: boolean;
+  FOVx10, verbose, OnlyConvert3D, AppendProtocolName: boolean;
 begin
-     FOVx10 := true;
-     verbose := false;
-     outFname := '';
-     if ParamCount > 1 then begin
-        i := 1;
-        while i <= (ParamCount-1) do begin
-              cmd := ParamStr(i);
-              i := i + 1;
-              if AnsiPos('-a', cmd) = 1 then FOVx10 := false;
-              if AnsiPos('-h', cmd) = 1 then WriteHelp;
-              if (AnsiPos('-o', cmd) = 1) and (i <= (ParamCount-1)) then begin
-                 outFname := ParamStr(i);
-                 i := i + 1;
-              end;
-              if AnsiPos('-v', cmd) = 1 then verbose := true;
-        end;
-     end;
-     inFname := ParamStr(ParamCount);
-     BrConvertBatch (inFname, outFname, FOVx10, verbose);
+    FOVx10 := true;
+    Verbose := false;
+    AppendProtocolName := false;
+    OnlyConvert3D := true;
+    outFname := '';
+    i := 1;
+    while i <= (ParamCount) do begin
+          cmd := ParamStr(i);
+          i := i + 1;
+          if AnsiPos('-', cmd) = 1 then begin
+            if AnsiPos('-a', cmd) = 1 then
+               FOVx10 := false
+            else if AnsiPos('-f', cmd) = 1 then
+               OnlyConvert3D := false
+            else if AnsiPos('-h', cmd) = 1 then
+               WriteHelp
+            else if AnsiPos('-p', cmd) = 1 then
+               AppendProtocolName := true
+            else if (AnsiPos('-o', cmd) = 1) and (i <= (ParamCount-1)) then begin
+               outFname := ParamStr(i);
+               i := i + 1;
+            end else if AnsiPos('-v', cmd) = 1 then
+               Verbose := true
+            else
+                showmsg('Unknown command (is this software obsolete?) '+cmd);
+          end else
+              inFname := cmd;
+    end;
+    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName);
 end;
 
 begin

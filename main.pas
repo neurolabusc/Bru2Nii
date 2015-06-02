@@ -16,11 +16,15 @@ type
     ConvertBtn: TSpeedButton;
     ConvertLabel: TLabel;
     FOVx10Check: TCheckBox;
+    OnlyConvert3DCheck: TCheckBox;
+    VerboseCheck: TCheckBox;
+    AppendProtocolNameCheck: TCheckBox;
     Memo1: TMemo;
     OpenDialog1: TOpenDialog;
     Panel1: TPanel;
     procedure ConvertBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure ConvertFile(FName: string);
     procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
   private
     { private declarations }
@@ -47,21 +51,25 @@ end;
 
 {$include common.inc}
 
+procedure TForm1.ConvertFile(FName: string);
+begin
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked);
+end;
+
 procedure TForm1.ConvertBtnClick(Sender: TObject);
 begin
      opendialog1.Filter := '"subject" or "acqp"|subject;acqp';
      opendialog1.Title:='Select  Bruker format file file';
      if not opendialog1.Execute then exit;
      Form1.Memo1.lines.Clear;
-     BrConvertBatch (opendialog1.FileName,'', FOVx10Check.checked, true);
+     ConvertFile (opendialog1.FileName);
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     decimalseparator := '.';
+     decimalseparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
      Showmsg(kVers);
      {$ifndef fpc} DragAcceptFiles(Handle, True); {$endif}
-     //BrConvertBatch ('/Users/rorden/Downloads/100603/10/acqp','', FOVx10Check.checked, true);
 end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of String);
@@ -70,7 +78,7 @@ var
 begin
      Form1.Memo1.lines.Clear;
      for lI := 0 to (length(FileNames)-1) do
-         BrConvertBatch(Filenames[lI],'', FOVx10Check.checked, true);
+         ConvertFile(Filenames[lI]);
 end;
 
 {$ifndef fpc}
@@ -81,7 +89,7 @@ var  CFileName: array[0..MAX_PATH] of Char;
 begin
   try
     if DragQueryFile(Msg.Drop, 0, CFileName, MAX_PATH) > 0 then begin
-      BrConvertBatch(CFilename,'', FOVx10Check.checked, true);
+      ConvertFile(CFilename);
       Msg.Result := 0;
     end;
   finally

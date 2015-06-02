@@ -7,29 +7,29 @@
         <Filename Value="Bru2.lpr"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="1"/>
-        <CursorPos X="2" Y="2"/>
-        <UsageCount Value="20"/>
+        <CursorPos X="56" Y="6"/>
+        <UsageCount Value="21"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
       </Unit0>
       <Unit1>
         <Filename Value="common.inc"/>
-        <IsVisibleTab Value="True"/>
-        <TopLine Value="380"/>
-        <CursorPos X="58" Y="403"/>
+        <CursorPos X="59" Y="8"/>
         <UsageCount Value="10"/>
         <Loaded Value="True"/>
       </Unit1>
       <Unit2>
         <Filename Value="console.pas"/>
         <UnitName Value="console"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="2"/>
-        <CursorPos X="45" Y="2"/>
+        <TopLine Value="50"/>
+        <CursorPos X="5" Y="86"/>
         <UsageCount Value="10"/>
         <Loaded Value="True"/>
       </Unit2>
     </Units>
-    <JumpHistory Count="11" HistoryIndex="10">
+    <JumpHistory Count="13" HistoryIndex="12">
       <Position1>
         <Filename Value="common.inc"/>
         <Caret Line="243" Column="21" TopLine="234"/>
@@ -73,6 +73,14 @@
         <Filename Value="common.inc"/>
         <Caret Line="394" Column="68" TopLine="381"/>
       </Position11>
+      <Position12>
+        <Filename Value="common.inc"/>
+        <Caret Line="7" Column="52"/>
+      </Position12>
+      <Position13>
+        <Filename Value="common.inc"/>
+        <Caret Line="4" Column="92"/>
+      </Position13>
     </JumpHistory>
   </ProjectSession>
 </CONFIG>

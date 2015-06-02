@@ -1,7 +1,7 @@
 object Form1: TForm1
-  Left = 457
+  Left = 652
   Height = 449
-  Top = 161
+  Top = 257
   Width = 682
   AllowDropFiles = True
   Caption = 'Bruker2NIfTI'
@@ -20,11 +20,11 @@ object Form1: TForm1
   end
   object Panel1: TPanel
     Left = 0
-    Height = 40
+    Height = 120
     Top = 0
     Width = 682
     Align = alTop
-    ClientHeight = 40
+    ClientHeight = 120
     ClientWidth = 682
     TabOrder = 0
     object ConvertBtn: TSpeedButton
@@ -38,6 +38,7 @@ object Form1: TForm1
     object FOVx10Check: TCheckBox
       Left = 144
       Height = 18
+      Hint = 'Rat templates assume image zoomed by 10 (so warping regularisation similar to humans) '
       Top = 12
       Width = 273
       Caption = 'Scale dimension units x10 (animal scans)'
@@ -45,11 +46,40 @@ object Form1: TForm1
       State = cbChecked
       TabOrder = 0
     end
+    object VerboseCheck: TCheckBox
+      Left = 144
+      Height = 18
+      Hint = 'Report image conversion details'
+      Top = 90
+      Width = 70
+      Caption = 'Verbose'
+      TabOrder = 1
+    end
+    object AppendProtocolNameCheck: TCheckBox
+      Left = 144
+      Height = 18
+      Hint = 'Includes protocol name to NIfTI filename (e.g. ''T1_1.nii'')'
+      Top = 64
+      Width = 233
+      Caption = 'Append protocol name to filename'
+      TabOrder = 2
+    end
+    object OnlyConvert3DCheck: TCheckBox
+      Left = 144
+      Height = 18
+      Hint = 'Exclude images that include different slice orientation (localizer scans that include coronal, axial and sagittal slices)'
+      Top = 38
+      Width = 167
+      Caption = 'Only convert 3D images'
+      Checked = True
+      State = cbChecked
+      TabOrder = 3
+    end
   end
   object Memo1: TMemo
     Left = 2
-    Height = 403
-    Top = 42
+    Height = 323
+    Top = 122
     Width = 678
     Align = alClient
     BorderSpacing.Bottom = 2
@@ -58,7 +88,7 @@ object Form1: TForm1
     TabOrder = 1
   end
   object OpenDialog1: TOpenDialog
-    left = 536
-    top = 8
+    left = 64
+    top = 48
   end
 end
