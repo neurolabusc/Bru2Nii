@@ -33,7 +33,7 @@ Being inspired by a Perl script we maintain the same license (http://dev.perl.or
 
 ##### Links
 
- -[pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv)
- -[Bruker2Analyze](http://www.mccauslandcenter.sc.edu/mricro/mricro/bru2anz/) is another Bruker to Analyze conversion tool. 
- -[dsi-studio](http://dsi-studio.labsolver.org/Manual/Parse-DICOM) can extract diffusion directions from Bruker datasets.
- - [mriutil](http://www.pennstatehershey.org/web/nmrlab/resources/software/mriutil) can view Bruker images without needing to convert them.
+ * [pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv)
+ * [Bruker2Analyze](http://www.mccauslandcenter.sc.edu/mricro/mricro/bru2anz/) is another Bruker to Analyze conversion tool. 
+ * [dsi-studio](http://dsi-studio.labsolver.org/Manual/Parse-DICOM) can extract diffusion directions from Bruker datasets.
+ * [mriutil](http://www.pennstatehershey.org/web/nmrlab/resources/software/mriutil) can view Bruker images without needing to convert them.
