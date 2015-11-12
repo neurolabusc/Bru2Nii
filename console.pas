@@ -29,7 +29,7 @@ begin
   writeln(' Converts Bruker "subject" or "acqp" MRI images');
   writeln('Options:');
   writeln(' -a actual size (otherwise x10 scale so animals match human)');
-  writeln(' -f force conversion of localizers images (multiple slice orientations)');
+  writeln(' -f force conversion of localizer images (multiple slice orientations)');
   writeln(' -h show these help instructions');
   writeln(' -o output filename');
   writeln(' -p append protocol name to output filename');
@@ -86,7 +86,7 @@ begin
 end;
 
 begin
-  decimalseparator := '.'; //Bruker will write real numbers as 1.23 not 1,23
+  DefaultFormatSettings.DecimalSeparator := '.'; //Bruker will write real numbers as 1.23 not 1,23
   if (ParamCount = 0)  then
      WriteHelp
   else

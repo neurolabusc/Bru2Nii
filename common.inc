@@ -1,5 +1,5 @@
 const
-  kVers = 'Bruker2NIfTI 2 June 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
+  kVers = 'Bruker2NIfTI 11 November 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
   kNIFTI_XFORM_UNKNOWN = 0;
   kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
 {$IFDEF ENDIAN_BIG}
@@ -16,7 +16,7 @@ type
   TBrukerHdr = Record
     RECO_byte_order_little, RECO_transposition_varies: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES: integer;
-    ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset: single;
+    ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name : string[79];
   end;
@@ -299,6 +299,7 @@ begin
      result.ACQ_read_offset := 0;
      result.ACQ_phase1_offset := 0;
      result.METHOD_slice_offset := 0;
+     result.METHOD_slice_distance := 0;
      result.RECO_size:= BrVecZero;
      result.RECO_offset := BrVecZero;
      result.RECO_fov := BrVecZero;
@@ -414,6 +415,8 @@ begin
         ReadLn(lFile, lStr);
         if AnsiPos('##$PVM_SPackArrSliceOffset', lStr) = 1 then
            BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
+        if AnsiPos('##$PVM_SPackArrSliceDistance', lStr) = 1 then
+           BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',lUnused );
   end;
   result := true;
   closefile(lFile);
@@ -520,6 +523,7 @@ begin
      showmsg(' Sepn (Thick+Gap) : '+f2str(BrHdr.ACQ_slice_sepn.v[1]));
      showmsg(' Slice Thick : '+f2str(BrHdr.ACQ_slice_thick));
      showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.METHOD_slice_offset));
+     showmsg(' METHOD_slice_distance : '+   f2str(BrHdr.METHOD_slice_distance));
      showmsg(' RECO_offset : '+f2str(BrHdr.RECO_offset.v[1])+' '+f2str(BrHdr.RECO_offset.v[2])+' '+f2str(BrHdr.RECO_offset.v[3]));
      showmsg(' Repetition Time : '+f2str(BrHdr.ACQ_repetition_time.v[1]) );
      showmsg(' NI (images per TR, slices): '+inttostr(BrHdr.ACQ_NI));
@@ -657,9 +661,11 @@ begin
         end else
             NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
   end;
-  if BrHdr.RECO_size.v[3]> 0 then begin
-    NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] ; //distance between slices, x10 FOV is CM not MM
-  end else
+  if BrHdr.METHOD_slice_distance > 0 then
+    NiHdr.pixdim[3] := BrHdr.METHOD_slice_distance //best source for distance between slices : includes gap
+  else if BrHdr.RECO_size.v[3]> 0 then
+    NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] //distance between slices, x10 FOV is CM not MM
+  else
     NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
@@ -784,7 +790,6 @@ begin
   if not BrReadACQP(lAcqpFName, BrHdr) then exit;
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
   BrReadMETHOD(lMethodFName, BrHdr);
-
   if lOutFName = '' then
     lOutFName := ExtractFilePath(lRecoFName)+Extractfilename(ExtractFileDir(lRecoFName))+'.nii';
    if AppendProtocolName then
@@ -821,7 +826,7 @@ begin
    if length(OutFName) < 1 then
       lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
    else
-      lOutFilename :=  OutFName+ExtractFileName(lSearchDir)+'.nii';
+      lOutFilename :=  OutFName+'.nii';
    inc(lOK);
    BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
    lS := extractfilename (FName);
@@ -837,7 +842,7 @@ begin
          if length(OutFName) < 1 then
             lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
          else
-            lOutFilename :=  OutFName+ExtractFileName(lSearchDir)+'.nii';
+            lOutFilename :=  OutFName+'.nii';
          inc(lOK);
          BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
       end;
@@ -851,7 +856,7 @@ begin
                  if length(OutFName) < 1 then
                   lOutFilename := lSearchDir+pathdelim +lSearchRec.Name+'.nii'
                  else
-                     lOutFilename :=  OutFName+lSearchRec.Name+'.nii';
+                     lOutFilename :=  OutFName+'.nii';
                inc(lOK);
                BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
               end;

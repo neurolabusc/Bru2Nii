@@ -7,7 +7,7 @@ interface
 uses
  {$ifndef fpc} ShellAPI,messages, strutils, {$endif}
   SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
-  StdCtrls, ExtCtrls,
+  StdCtrls, ExtCtrls,  Process,
   Classes;
    //Classes,  Graphics,  ComCtrls,  FileCtrl,
 type
@@ -67,9 +67,10 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     decimalseparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
+     DefaultFormatSettings.DecimalSeparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
      Showmsg(kVers);
      {$ifndef fpc} DragAcceptFiles(Handle, True); {$endif}
+
 end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of String);

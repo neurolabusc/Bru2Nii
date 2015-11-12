@@ -25,10 +25,11 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Compile from Source
 
-1.) You will want to install Lazarus (http://www.lazarus-ide.org). For Windows, download and run the unified installer. For Linux and OSX, you will want to install the lazarus, fpc and fpc-src packages.
-2.) You can build these tools from the graphical interface. For example, launch Lazarus. Select Project/OpenProject and then choose project you wish to compile (for example Bru2Nii.lpr). Finally, choose the Run/Run command. 
-3.) To compile the console version from the command line, run either one of these commands "fpc Bru2.lpr" or "lazbuild -B Bru2.lpr".
-4.) To build the graphical version from the command line, run the command "lazbuild -B Bru2Nii.lpr".
+1. You will want to install Lazarus (http://www.lazarus-ide.org). For Windows, download and run the unified installer. For Linux and OSX, you will want to install the lazarus, fpc and fpc-src packages.
+2. You can build these tools from the graphical interface. For example, launch Lazarus. Select Project/OpenProject and then choose project you wish to compile (for example Bru2Nii.lpr). Finally, choose the Run/Run command. 
+3. To compile the console version from the command line, run either one of these commands "fpc Bru2.lpr" or "lazbuild -B Bru2.lpr".
+4. To build the graphical version from the command line, run the command "lazbuild -B Bru2Nii.lpr". Note by default OSX will compile to 32-bit Carbon. If you have a recent SVN of Lazarus (50307 or later) you can compile as 64-bit Cocoa with "lazbuild ./Bru2Nii.lpr --cpu=x86_64 --ws=cocoa --compiler="/usr/local/bin/ppcx64""
+5. You may optionally strip you executables to make them require less disk space, e.g. "strip ./Bru2Nii", "strip ./Bru2" - the compiler will probably do this automatically for Windows or Linux, but not OSX (due to the debugger).
 
 ##### Versions
 
@@ -36,6 +37,10 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
  - Original Beta version
  - Need examples to support images with multiple echoes (e.g. separate volumes from T2+PD acquisition
  - Need to get examples for setting origin and rotation correctly
+ 
+11Nov2015 : 
+ - Handles slice gap seen in some files (issue identified by Horea Christian)
+ - Bru2 -o option no longer adds search path (issue identified by Horea Christian)
  
 ##### License
 
