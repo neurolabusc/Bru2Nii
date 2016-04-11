@@ -1,6 +1,11 @@
 const
-  kVers = 'Bruker2NIfTI 11 November 2015 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com';
-  kNIFTI_XFORM_UNKNOWN = 0;
+
+kVers = 'Bruker2NIfTI 11 April 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
+{$IFDEF CPU64} + '64-bit)';
+{$ELSE} + '32-bit)';
+{$ENDIF}
+
+    kNIFTI_XFORM_UNKNOWN = 0;
   kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
 {$IFDEF ENDIAN_BIG}
  kNIFTI_MAGIC_EMBEDDED_HDR = $6E2B3100;
@@ -15,8 +20,8 @@ type
   TMat = array[1..4, 1..4] of single;
   TBrukerHdr = Record
     RECO_byte_order_little, RECO_transposition_varies: boolean;
-    RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES: integer;
-    ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
+    RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme: integer;
+    RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name : string[79];
   end;
@@ -299,9 +304,13 @@ begin
      result.ACQ_read_offset := 0;
      result.ACQ_phase1_offset := 0;
      result.METHOD_slice_offset := 0;
+     result.METHOD_PVM_ObjOrderScheme:= 0; //slice order unknown
      result.METHOD_slice_distance := 0;
      result.RECO_size:= BrVecZero;
      result.RECO_offset := BrVecZero;
+     result.RECO_map_offset:= 0;
+     result.RECO_map_slope:= 1;
+     result.ACQ_RG:= 1;
      result.RECO_fov := BrVecZero;
      result.ACQ_slice_sepn := BrVecZero;
      result.ACQ_repetition_time := BrVecZero;
@@ -417,6 +426,12 @@ begin
            BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$PVM_SPackArrSliceDistance', lStr) = 1 then
            BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',lUnused );
+        if AnsiPos('##$PVM_ObjOrderScheme', lStr) = 1 then  begin  //Suggested and validated by Chern-Chyi Yen
+           if AnsiPos('Sequential', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 1;
+           if AnsiPos('Reverse_sequential', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 2;
+           if AnsiPos('Interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 3;
+           if AnsiPos('Reverse_interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 4;
+        end;
   end;
   result := true;
   closefile(lFile);
@@ -460,6 +475,8 @@ begin
            BrHdr.ACQ_NR := BrGetInt(lStr);
         if AnsiPos('##$ACQ_nr_completed', lStr) = 1 then
            BrHdr.ACQ_nr_completed := BrGetInt(lStr);
+        if AnsiPos('##$RG=', lStr) = 1 then
+           BrHdr.ACQ_RG := BrGetFloat(lStr);
   end;
   result := true;
   closefile(lFile);
@@ -470,6 +487,7 @@ function BrReadRECO (fname: string; var BrHdr: TBrukerHdr): boolean;
 var
     lFile: TextFile;
     lStr :string;
+    RECO_map_offset_varies, RECO_map_slope_varies: boolean;
 begin
   result := false;
   if not fileexists(fname) then exit;
@@ -492,6 +510,11 @@ begin
            BrGetArray(lFile, '(3)', BrHdr.RECO_offset);
         if AnsiPos('##$RECO_fov=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.RECO_fov);
+
+        if AnsiPos('##$RECO_map_offset=', lStr) = 1 then
+           BrHdr.RECO_map_offset  := BrArrayVaries(lFile, fname, RECO_map_offset_varies );
+        if AnsiPos('##$RECO_map_slope=', lStr) = 1 then
+           BrHdr.RECO_map_slope  := BrArrayVaries(lFile, fname, RECO_map_slope_varies );
   end;
   result := true;
   closefile(lFile);
@@ -517,18 +540,23 @@ begin
      showmsg(' Bits : '+ inttostr(BrHdr.RECO_wordtype_bits));
      showmsg(' Size : '+f2str(BrHdr.RECO_size.v[1])+'x'+f2str(BrHdr.RECO_size.v[2])) ;
      showmsg(' FOV : '+f2str(BrHdr.RECO_fov.v[1])+'x'+f2str(BrHdr.RECO_fov.v[2]));
-     showmsg(' Matrix = ['+f2str(BrHdr.ACQ_grad_matrix.v[1])+' '+f2str(BrHdr.ACQ_grad_matrix.v[2])+' '+f2str(BrHdr.ACQ_grad_matrix.v[3])+'; '+
+     showmsg(' Matrix : ['+f2str(BrHdr.ACQ_grad_matrix.v[1])+' '+f2str(BrHdr.ACQ_grad_matrix.v[2])+' '+f2str(BrHdr.ACQ_grad_matrix.v[3])+'; '+
       f2str(BrHdr.ACQ_grad_matrix.v[4])+' '+f2str(BrHdr.ACQ_grad_matrix.v[5])+' '+f2str(BrHdr.ACQ_grad_matrix.v[6])+'; '+
       f2str(BrHdr.ACQ_grad_matrix.v[7])+' '+f2str(BrHdr.ACQ_grad_matrix.v[8])+' '+f2str(BrHdr.ACQ_grad_matrix.v[9])+']');
      showmsg(' Sepn (Thick+Gap) : '+f2str(BrHdr.ACQ_slice_sepn.v[1]));
      showmsg(' Slice Thick : '+f2str(BrHdr.ACQ_slice_thick));
      showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.METHOD_slice_offset));
      showmsg(' METHOD_slice_distance : '+   f2str(BrHdr.METHOD_slice_distance));
+     showmsg(' METHOD_PVM_ObjOrderScheme: '+inttostr(BrHdr.METHOD_PVM_ObjOrderScheme));
      showmsg(' RECO_offset : '+f2str(BrHdr.RECO_offset.v[1])+' '+f2str(BrHdr.RECO_offset.v[2])+' '+f2str(BrHdr.RECO_offset.v[3]));
      showmsg(' Repetition Time : '+f2str(BrHdr.ACQ_repetition_time.v[1]) );
-     showmsg(' NI (images per TR, slices): '+inttostr(BrHdr.ACQ_NI));
+     showmsg(' NI (images per TR, slices) : '+inttostr(BrHdr.ACQ_NI));
      showmsg(' NSLICES : '+inttostr(BrHdr.ACQ_NSLICES));
-     showmsg(' NR (volumes): '+inttostr(BrHdr.ACQ_NR));
+     showmsg(' NR (volumes) : '+inttostr(BrHdr.ACQ_NR));
+     showmsg(' Convert pixel value (PV) to floating point value (FP) : FP = (PV/RECO_map_slope + RECO_map_offset)/ ACQ_RG');
+     showmsg(' RECO_map_slope : '+   f2str(BrHdr.RECO_map_slope));
+     showmsg(' RECO_map_offset : '+   f2str(BrHdr.RECO_map_offset));
+     showmsg(' ACQ_RG : '+   f2str(BrHdr.ACQ_RG));
      showmsg(' Transpose : '+f2str(BrHdr.RECO_transposition) );
 end;
 
@@ -647,6 +675,8 @@ begin
       showmsg('Unsupported RECO_wordtype '+inttostr(BrHdr.RECO_wordtype_bits)+' '+FName);
       exit;
   end;
+  NiHdr.scl_inter:= BrHdr.RECO_map_offset/BrHdr.ACQ_RG;  //FP = (PV/RECO_map_slope + RECO_map_offset)/ ACQ_RG
+  NiHdr.scl_slope:= (1/BrHdr.RECO_map_slope)/BrHdr.ACQ_RG;  //FP = (PV/RECO_map_slope + RECO_map_offset)/ ACQ_RG
   for i := 1 to 4 do
       NiHdr.dim[i] := round(BrHdr.RECO_size.v[i]);
   if (NiHdr.dim[1] < 1) or (NiHdr.dim[2] < 1) then begin
@@ -683,6 +713,7 @@ begin
   if (length(BrHdr.ACQ_protocol_name) > 0) and (length(BrHdr.ACQ_protocol_name) < 80) then
       for i := 1 to length(BrHdr.ACQ_protocol_name) do
           NiHdr.descrip[i] := BrHdr.ACQ_protocol_name[i];
+  NiHdr.slice_code:= BrHdr.METHOD_PVM_ObjOrderScheme;
   result := true;
 end;
 

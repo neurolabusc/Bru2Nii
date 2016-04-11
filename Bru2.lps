@@ -6,7 +6,6 @@
       <Unit0>
         <Filename Value="Bru2.lpr"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <CursorPos X="14"/>
         <UsageCount Value="21"/>
@@ -22,6 +21,7 @@
       </Unit1>
       <Unit2>
         <Filename Value="console.pas"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="2"/>
         <TopLine Value="49"/>
         <CursorPos X="78" Y="61"/>
