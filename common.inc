@@ -1,6 +1,6 @@
 const
 
-kVers = 'Bruker2NIfTI 11 April 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
+kVers = 'Bruker2NIfTI 15 April 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
 {$IFDEF CPU64} + '64-bit)';
 {$ELSE} + '32-bit)';
 {$ENDIF}
@@ -22,7 +22,7 @@ type
     RECO_byte_order_little, RECO_transposition_varies: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
-    RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
+    METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name : string[79];
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
@@ -315,6 +315,7 @@ begin
      result.ACQ_slice_sepn := BrVecZero;
      result.ACQ_repetition_time := BrVecZero;
      result.ACQ_grad_matrix := BrVecZero;
+     result.METHOD_PVM_SpatResol := BrVecZero;
 end;
 
 function BrArrayVaries(var lFile: TextFile; lFname: string; var lVaries: boolean): single;
@@ -426,12 +427,14 @@ begin
            BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$PVM_SPackArrSliceDistance', lStr) = 1 then
            BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',lUnused );
-        if AnsiPos('##$PVM_ObjOrderScheme', lStr) = 1 then  begin  //Suggested and validated by Chern-Chyi Yen
+        if AnsiPos('##$PVM_ObjOrderScheme', lStr) = 1 then  begin  //4/2016 Suggested and validated by Chern-Chyi Yen
            if AnsiPos('Sequential', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 1;
            if AnsiPos('Reverse_sequential', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 2;
            if AnsiPos('Interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 3;
            if AnsiPos('Reverse_interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 4;
         end;
+        if AnsiPos('##$PVM_SpatReso', lStr) = 1 then
+           BrGetArray(lFile, lStr, BrHdr.METHOD_PVM_SpatResol);
   end;
   result := true;
   closefile(lFile);
@@ -546,6 +549,7 @@ begin
      showmsg(' Sepn (Thick+Gap) : '+f2str(BrHdr.ACQ_slice_sepn.v[1]));
      showmsg(' Slice Thick : '+f2str(BrHdr.ACQ_slice_thick));
      showmsg(' Offset (Read/Phase/Slice) : '+f2str(BrHdr.ACQ_read_offset)+' '+f2str(BrHdr.ACQ_phase1_offset)+' '+f2str(BrHdr.METHOD_slice_offset));
+     showmsg(' METHOD_PVM_SpatResol : '+  f2str(BrHdr.METHOD_PVM_SpatResol.v[1])+'x' +f2str(BrHdr.METHOD_PVM_SpatResol.v[2])+'x' +f2str(BrHdr.METHOD_PVM_SpatResol.v[3]));
      showmsg(' METHOD_slice_distance : '+   f2str(BrHdr.METHOD_slice_distance));
      showmsg(' METHOD_PVM_ObjOrderScheme: '+inttostr(BrHdr.METHOD_PVM_ObjOrderScheme));
      showmsg(' RECO_offset : '+f2str(BrHdr.RECO_offset.v[1])+' '+f2str(BrHdr.RECO_offset.v[2])+' '+f2str(BrHdr.RECO_offset.v[3]));
@@ -691,7 +695,9 @@ begin
         end else
             NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
   end;
-  if BrHdr.METHOD_slice_distance > 0 then
+  if BrHdr.METHOD_PVM_SpatResol.v[3] > 0 then //4/2016: Suggested and validated by Chern-Chyi Yen
+    NiHdr.pixdim[3] := BrHdr.METHOD_PVM_SpatResol.v[3] //for 3D sequences, e.g. 3D FLASH
+  else if BrHdr.METHOD_slice_distance > 0 then
     NiHdr.pixdim[3] := BrHdr.METHOD_slice_distance //best source for distance between slices : includes gap
   else if BrHdr.RECO_size.v[3]> 0 then
     NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] //distance between slices, x10 FOV is CM not MM

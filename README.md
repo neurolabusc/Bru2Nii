@@ -42,8 +42,8 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
  - Handles slice gap seen in some files (issue identified by Horea Christian)
  - Bru2 -o option no longer adds search path (issue identified by Horea Christian)
 
-11Apr2016 :
- - Uses receiver gain (RG) to adjust image scaling (suggested by Chern-Chyi Yen)
+15Apr2016 :
+ - Uses PVM_SpatResol for 3D sequences. Uses the slope, the offset, and the gain specified in the parameter files to adjust image scaling (suggested by Chern-Chyi Yen)
 
 ##### License
 
