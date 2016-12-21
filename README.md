@@ -37,7 +37,7 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
  - Better detection of [slice gaps](https://github.com/neurolabusc/Bru2Nii/issues/2).
  - Better [file naming](https://github.com/neurolabusc/Bru2Nii/issues/3)
  - Clearer description of [-f option](https://github.com/neurolabusc/Bru2Nii/issues/4).
-
+ - Compiled executables of latest stable release for Windows, Linux and MacOS included in "compiled" folder
 
 15Apr2016 :
  - Uses PVM_SpatResol for 3D sequences. Uses the slope, the offset, and the gain specified in the parameter files to adjust image scaling (suggested by Chern-Chyi Yen)
