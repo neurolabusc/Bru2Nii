@@ -1,6 +1,6 @@
 const
 
-kVers = 'Bruker2NIfTI 15 April 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
+kVers = 'Bruker2NIfTI v1.0.20161212 : 12 December 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
 {$IFDEF CPU64} + '64-bit)';
 {$ELSE} + '32-bit)';
 {$ENDIF}
