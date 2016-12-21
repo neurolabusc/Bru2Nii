@@ -33,17 +33,25 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Versions
 
-2June2015 :
- - Original Beta version
- - Need examples to support images with multiple echoes (e.g. separate volumes from T2+PD acquisition
- - Need to get examples for setting origin and rotation correctly
+12Dec2016 : v1.0.20161212
+ - Better detection of [slice gaps](https://github.com/neurolabusc/Bru2Nii/issues/2).
+ - Better [file naming](https://github.com/neurolabusc/Bru2Nii/issues/3)
+ - Clearer description of [-f option](https://github.com/neurolabusc/Bru2Nii/issues/4).
+
+
+15Apr2016 :
+ - Uses PVM_SpatResol for 3D sequences. Uses the slope, the offset, and the gain specified in the parameter files to adjust image scaling (suggested by Chern-Chyi Yen)
 
 11Nov2015 :
  - Handles slice gap seen in some files (issue identified by Horea Christian)
  - Bru2 -o option no longer adds search path (issue identified by Horea Christian)
 
-15Apr2016 :
- - Uses PVM_SpatResol for 3D sequences. Uses the slope, the offset, and the gain specified in the parameter files to adjust image scaling (suggested by Chern-Chyi Yen)
+2June2015 :
+ - Original Beta version
+ - Need examples to support images with multiple echoes (e.g. separate volumes from T2+PD acquisition
+ - Need to get examples for setting origin and rotation correctly
+
+
 
 ##### License
 
