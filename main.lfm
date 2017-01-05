@@ -10,7 +10,7 @@ object Form1: TForm1
   OnCreate = FormCreate
   OnDropFiles = FormDropFiles
   Position = poScreenCenter
-  LCLVersion = '1.6.0.4'
+  LCLVersion = '1.7'
   object ConvertLabel: TLabel
     Left = 132
     Height = 1
@@ -40,7 +40,7 @@ object Form1: TForm1
       Height = 18
       Hint = 'Rat templates assume image zoomed by 10 (so warping regularisation similar to humans) '
       Top = 12
-      Width = 273
+      Width = 267
       Caption = 'Scale dimension units x10 (animal scans)'
       Checked = True
       State = cbChecked
@@ -53,27 +53,27 @@ object Form1: TForm1
       Top = 90
       Width = 70
       Caption = 'Verbose'
-      TabOrder = 1
+      TabOrder = 3
     end
     object AppendProtocolNameCheck: TCheckBox
       Left = 144
       Height = 18
       Hint = 'Includes protocol name to NIfTI filename (e.g. ''T1_1.nii'')'
       Top = 64
-      Width = 233
+      Width = 229
       Caption = 'Append protocol name to filename'
-      TabOrder = 2
+      TabOrder = 1
     end
     object OnlyConvert3DCheck: TCheckBox
       Left = 144
       Height = 18
       Hint = 'Exclude images that include different slice orientation (localizer scans that include coronal, axial and sagittal slices)'
       Top = 38
-      Width = 167
+      Width = 166
       Caption = 'Only convert 3D images'
       Checked = True
       State = cbChecked
-      TabOrder = 3
+      TabOrder = 2
     end
   end
   object Memo1: TMemo

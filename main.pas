@@ -9,7 +9,6 @@ uses
   SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
   StdCtrls, ExtCtrls,  Process,
   Classes;
-   //Classes,  Graphics,  ComCtrls,  FileCtrl,
 type
   { TForm1 }
   TForm1 = class(TForm)
@@ -70,7 +69,6 @@ begin
      DefaultFormatSettings.DecimalSeparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
      Showmsg(kVers);
      {$ifndef fpc} DragAcceptFiles(Handle, True); {$endif}
-
 end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of String);

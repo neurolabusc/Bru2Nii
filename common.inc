@@ -1,12 +1,16 @@
 const
 
-kVers = 'Bruker2NIfTI v1.0.20161212 : 12 December 2016 by Matthew Brett, Andrew Janke, Chris Rorden. See www.mricro.com ('
-{$IFDEF CPU64} + '64-bit)';
-{$ELSE} + '32-bit)';
-{$ENDIF}
-
-    kNIFTI_XFORM_UNKNOWN = 0;
-  kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
+kVers = 'Bruker2NIfTI v1.0.20170101 : by Matthew Brett, Andrew Janke, Chris Rorden.'
+{$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
+{$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
+{$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}
+{$IFDEF Darwin} + ' macOS' {$ENDIF}
+{$IFDEF Linux} + ' Linux' {$ENDIF}
+{$IFDEF WINDOWS}+ ' Windows' {$ENDIF}
+{$IFDEF CPU64} + ' 64-bit';
+{$ELSE} + ' 32-bit'; {$ENDIF}
+ kNIFTI_XFORM_UNKNOWN = 0;
+ kNIFTI_XFORM_SCANNER_ANAT = 1;//Scanner-based anatomical coordinates
 {$IFDEF ENDIAN_BIG}
  kNIFTI_MAGIC_EMBEDDED_HDR = $6E2B3100;
 {$ELSE}
