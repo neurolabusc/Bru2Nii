@@ -1,6 +1,6 @@
 const
 
-kVers = 'Bruker2NIfTI v1.0.20170101 : by Matthew Brett, Andrew Janke, Chris Rorden.'
+kVers = 'Bruker2NIfTI v1.0.20170303 : by Matthew Brett, Andrew Janke, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
 {$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
 {$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}
@@ -239,10 +239,10 @@ begin
      result := '';
 end;
 
-function BrFindFile (var lxBaseDir,lxPath: string; lxFileName: string; lPrompt: boolean): boolean;
+function BrFindFile (var lxBaseDir,lxPath: string; lxFileName: string; lPrompt: boolean; ACQPdir: string): boolean;
 //start from basedir and search sub-folders for a file named filename.
 var
-   lxSearchDir,lxNewDir : string;
+   lxSearchDir,lxNewDir, lxTemp : string;
    lxSearchRec: TSearchRec;
 begin
      result := false;
@@ -275,6 +275,13 @@ begin
            if fileexists (lxSearchDir+lxFileName) then
               lxPath := lxSearchDir+ lxFileName
         until (lxNewDir = '') {exhausted directories} or (lxPath <> '') {found file};
+     end;
+     if (lxPath = '') and (ACQPdir <> '') then begin //hail mary : e.g. series 2 does not have a reco file, so use series 1. Kludge until Bruker adopts a sensible format
+        lxTemp := ACQPdir + 'pdata' + pathdelim + '1' + pathdelim + lxFileName;
+        if fileexists (lxTemp) then begin
+              lxPath := lxTemp;
+              showmsg('Warning: Unable to find '+lxFileName+' in '+lxBaseDir+' using '+lxPath );
+        end;
      end;
      if (lxPath = '') then begin
         if lPrompt then
@@ -476,8 +483,10 @@ begin
            BrHdr.ACQ_ns_list_size := BrGetInt(lStr);
         if AnsiPos('##$NI=', lStr) = 1 then
            BrHdr.ACQ_NI := BrGetInt(lStr);
-        if AnsiPos('##$ACQ_NSLICES=', lStr) = 1 then
+        if AnsiPos('##$ACQ_NSLICES=', lStr) = 1 then //##$ACQ_NSLICES=64
            BrHdr.ACQ_NSLICES := BrGetInt(lStr);
+        if AnsiPos('##$NSLICES=', lStr) = 1 then //##$NSLICES=64
+             BrHdr.ACQ_NSLICES := BrGetInt(lStr);
         if AnsiPos('##$NR=', lStr) = 1 then
            BrHdr.ACQ_NR := BrGetInt(lStr);
         if AnsiPos('##$ACQ_nr_completed', lStr) = 1 then
@@ -708,6 +717,8 @@ begin
   else
     NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
+  if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NSLICES > 0) and (BrHdr.ACQ_NR <= 1) and ((BrHdr.ACQ_NI mod BrHdr.ACQ_NSLICES) = 0) then
+     NiHdr.dim[3] :=  BrHdr.ACQ_NSLICES;
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
     NiHdr.dim[3] := BrHdr.ACQ_NI;
   if NiHdr.dim[3] > 1 then begin
@@ -815,24 +826,33 @@ end;
 procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
 //convert Bruker file to NIfTI
 var
-    lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName: string;
+    lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir: string;
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
 begin
   lBaseDir := extractfilepath(lDirStr);
-  if not BrFindFile(lBaseDir,lRecoFName,'reco',true) then exit;
-  if not BrFindFile(lBaseDir,lAcqpFName,'acqp',true) then exit;
-  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true) then exit;
+  if not BrFindFile(lBaseDir,lAcqpFName,'acqp',true,'') then exit;
+  lAcqpDir := extractfilepath(lAcqpFName);
+  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir) then exit;
+  if not BrFindFile(lBaseDir,lRecoFName,'reco',true, lAcqpDir) then exit;
   showmsg('');
-  BrFindFile(lBaseDir,lMethodFName,'method',true); //optional - do not exit if missing
+  BrFindFile(lBaseDir,lMethodFName,'method',true, ''); //optional - do not exit if missing
   ImgBytes := FSize(lImgFName);
   BrHdr := BrClear;
   if not BrReadACQP(lAcqpFName, BrHdr) then exit;
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
   BrReadMETHOD(lMethodFName, BrHdr);
+  if fileexists(ExtractFilePath(lImgFName)+ 'd3proc') then begin
+     showmsg('Found "d3proc" file: assuming 32-bit data');
+     BrHdr.RECO_wordtype_bits := 32;
+  end;
+
+  //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
   if lOutFName = '' then
-    lOutFName := ExtractFilePath(lRecoFName)+Extractfilename(ExtractFileDir(lRecoFName))+'.nii';
+     lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))+'.nii'
+  else
+     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName)) );
    if AppendProtocolName then
       lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
   lOutFName := UniqueFilename(lOutFName);
@@ -849,62 +869,31 @@ begin
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr);
 end;
 
-procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
-//convert a Bruker format file
+procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
 var
-   lOK: integer;
-   lSearchRec: TSearchRec;
-   lParentDirACQP, lSearchDir,lFileName,lOutFilename, lS: String;
+  SR: TSearchRec;
 begin
-  if DirectoryExists(FName) then
-     lSearchDir := FName
-  else
-      lSearchDir := extractfiledir(FName) ;
-  lOK := 0;
-  //1st: look for acqp in current folder - user specified acqp or method file
-  lFileName := lSearchDir+pathdelim+'acqp';
-  if fileexists(lFilename) then begin
-   if length(OutFName) < 1 then
-      lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
-   else
-      lOutFilename :=  OutFName+'.nii';
-   inc(lOK);
-   BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
-   lS := extractfilename (FName);
-   if (AnsiPos('acqp', lS) = 1) then
-        exit; //quit: batch convert 'subject' files, not single images 'acqp'
+  if FindFirst(IncludeTrailingBackslash(Dir) + '*', faAnyFile or faDirectory, SR) = 0 then
+    try
+      repeat
+        if ((SR.Attr and faDirectory) = 0) and (SR.Name = '2dseq') then begin
+          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
+          //showmsg(IncludeTrailingBackslash(Dir)+SR.Name)
+        end else if (SR.Name <> '.') and (SR.Name <> '..') then
+          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);  // recursive call!
+      until FindNext(Sr) <> 0;
+    finally
+      FindClose(SR);
+    end;
+end;
+
+procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
+begin
+  if OutFName = '' then begin
+    if DirectoryExists(FName) then
+      OutFname := IncludeTrailingBackslash(FName)+'.nii'
+    else
+        OutFName := ExtractFilePath(FName)+'.nii';
   end;
-  //2nd: look for 2dseq in current folder - e.g. user specified 2dseq or reco file
-  lFileName := lSearchDir+pathdelim+'2dseq';
-  if fileexists(lFilename) then begin
-      lParentDirACQP := extractfilepath(extractfiledir(lSearchDir))+'acqp';
-      if fileexists(lParentDirACQP) then begin
-         lSearchDir := extractfiledir(lParentDirACQP) ;
-         if length(OutFName) < 1 then
-            lOutFilename := lSearchDir+pathdelim +ExtractFileName(lSearchDir)+'.nii'
-         else
-            lOutFilename :=  OutFName+'.nii';
-         inc(lOK);
-         BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
-      end;
-  end;
-  //3rd last resort: assume we are in subject folder and look for acqp in sub-directors
-  if FindFirst(lSearchDir+pathdelim+'*', faDirectory, lSearchRec) = 0 then begin
-   repeat  //open each folder in succession
-           if (lSearchRec.Name <> '.') and (lSearchRec.Name <> '..') and (( lSearchRec.Attr and faDirectory) <> 0) then begin
-            lFileName := lSearchDir+pathdelim +lSearchRec.Name+pathdelim+'acqp';
-              if fileexists(lFilename) then begin
-                 if length(OutFName) < 1 then
-                  lOutFilename := lSearchDir+pathdelim +lSearchRec.Name+'.nii'
-                 else
-                     lOutFilename :=  OutFName+'.nii';
-               inc(lOK);
-               BrConvert (lFileName,lOutFilename, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
-              end;
-           end;
-     until (FindNext(lSearchRec) <> 0);
-  end;
-  FindClose(lSearchRec); //free resources
-  if lOK = 0 then
-   showmsg('Unable to find any Bruker acqp files, e.g. '+ lFileName);
+  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
 end;

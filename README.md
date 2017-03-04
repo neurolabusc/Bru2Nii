@@ -1,6 +1,6 @@
 ##### Introduction
 
-This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. It includes both a drag-and-drop graphical interface (Bru2Nii) as well as a command line tool (Bru2). The compiled tools run on Windows, Linux and OSX without requiring any other files to be installed. The source code can be built using Lazarus without any other tools required. This project is inspired by the Perl script pvconv (http://pvconv.sourceforge.net).
+This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. While every attempt has been made to provide robust support, the ParaVision format is inherently complicated, poorly documented, and has included explicit errors. Users should use any conversion tools with caution and encourage the vendor to directly support simpler formats (e.g. creating a NIfTI "hdr" header file when the Paravision files are generated could be done seamlessly and would greatly aid customers). It includes both a drag-and-drop graphical interface (Bru2Nii) as well as a command line tool (Bru2). The compiled tools run on Windows, Linux and OSX without requiring any other files to be installed. The source code can be built using Lazarus without any other tools required. This project is inspired by the Perl script pvconv (http://pvconv.sourceforge.net).
 
 You can find pre-compiled binary executables in the 'compiled' folder, or if you wish you can re-compile your own copy.
 
@@ -32,6 +32,10 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 5. You may optionally strip you executables to make them require less disk space, e.g. "strip ./Bru2Nii", "strip ./Bru2" - the compiler will probably do this automatically for Windows or Linux, but not OSX (due to the debugger).
 
 ##### Versions
+
+3Mar2017 : v1.0.20170303
+ - Filenames include EXPNO and PROCNO, e.g. X1P2.
+ - Experimental support for images that do not include reco files.
 
 12Dec2016 : v1.0.20161212
  - Better detection of [slice gaps](https://github.com/neurolabusc/Bru2Nii/issues/2).
