@@ -869,7 +869,8 @@ begin
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr);
 end;
 
-procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
+procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean; var nOK: integer);
+//Find and convert any "2dseq" file in Dir and enclosed sub-directories
 var
   SR: TSearchRec;
 begin
@@ -878,9 +879,9 @@ begin
       repeat
         if ((SR.Attr and faDirectory) = 0) and (SR.Name = '2dseq') then begin
           BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
-          //showmsg(IncludeTrailingBackslash(Dir)+SR.Name)
+          inc(nOK);
         end else if (SR.Name <> '.') and (SR.Name <> '..') then
-          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);  // recursive call!
+          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, nOK);  // recursive call!
       until FindNext(Sr) <> 0;
     finally
       FindClose(SR);
@@ -888,12 +889,20 @@ begin
 end;
 
 procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean);
+var
+  nOK: integer = 0;
 begin
+  if not DirectoryExists(FName) then
+    FName := ExtractFilePath(FName);
   if OutFName = '' then begin
     if DirectoryExists(FName) then
       OutFname := IncludeTrailingBackslash(FName)+'.nii'
     else
         OutFName := ExtractFilePath(FName)+'.nii';
   end;
-  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName);
+  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, nOK);
+  if nOK = 0 then
+    showmsg('Unable to find any "2dseq" files in '+FName)
+  else
+      showmsg('Converted '+inttostr(nOK)+' 2dseq in '+FName);
 end;
