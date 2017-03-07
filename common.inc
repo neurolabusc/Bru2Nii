@@ -23,7 +23,7 @@ type
   end;
   TMat = array[1..4, 1..4] of single;
   TBrukerHdr = Record
-    RECO_byte_order_little, RECO_transposition_varies: boolean;
+    RECO_byte_order_little, RECO_transposition_varies, has_d3proc_file: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
@@ -787,13 +787,39 @@ begin
          wp^[i] := swap(wp^[i]);
 end;
 
-procedure CpyImg (lRawFName, lNiiFName: string; ImgBytes: integer; BrHdr: TBrukerHdr);
+procedure SwapDimsZT(p: Pointer; ImgBytes: integer; lNiHdr: TNiHdr);
+//swizzle 3rd and 4th dimensions
+type
+    ByteRA0 = array [0..0] of byte;
+    Bytep0 = ^ByteRA0;
+var
+    xyBytes, xyzBytes, z, t, posIn, posOut: integer;
+    pIn, pOut: Bytep0;
+begin
+     xyBytes := lNiHdr.dim[1]*lNiHdr.dim[2]*(lNiHdr.bitpix div 8);
+     if (lNiHdr.dim[3] < 2) or (lNiHdr.dim[4] < 2) or ((xyBytes*lNiHdr.dim[3]*lNiHdr.dim[4]) <> ImgBytes) then exit;
+     xyzBytes := xyBytes * lNiHdr.dim[3];
+     getmem(pIn, ImgBytes);
+     Move(p^,pIn^,ImgBytes);//src, dest, bytes
+     pOut := Bytep0(p);
+     posIn := 0;
+     for z := 1 to lNiHdr.dim[3] do begin
+       for t := 1 to lNiHdr.dim[4] do begin
+           posOut := ((t-1)*xyzBytes) + ((z-1) * xyBytes);
+           Move(pIn^[posIn],pOut^[posOut], xyBytes);//src, dest, bytes
+           inc(posIn, xyBytes);
+       end;
+     end;
+     freemem(pIn);
+end;
+
+procedure CpyImg (lRawFName, lNiiFName: string; ImgBytes: integer; BrHdr: TBrukerHdr; lNiHdr: TNiHdr);
 //copy image data from Bruker 2dseq file to NIfTI .nii file: forces native byte order
 var
   lOutF,lInF: File of byte;
   p: Pointer;
 begin
-   getmem(p, ImgBytes);
+  getmem(p, ImgBytes);
   AssignFile(lInF, lRawFName);
   Reset(lInF);
   FileMode := 0; //Set file access to read only
@@ -810,6 +836,8 @@ begin
     if (BrHdr.RECO_wordtype_bits = 16) then
        Swap16(p, ImgBytes);
   end;  //swap image data to have native endian
+  if BrHdr.has_d3proc_file then //based on one image from Mikaël Naveau
+    SwapDimsZT(p, ImgBytes, lNiHdr);
   AssignFile(lOutF, lNiiFName);
   Reset(lOutF);
   Seek(lOutF, sizeof(TNiHdr));
@@ -843,11 +871,11 @@ begin
   if not BrReadACQP(lAcqpFName, BrHdr) then exit;
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
   BrReadMETHOD(lMethodFName, BrHdr);
-  if fileexists(ExtractFilePath(lImgFName)+ 'd3proc') then begin
+  BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
+  if BrHdr.has_d3proc_file then begin
      showmsg('Found "d3proc" file: assuming 32-bit data');
      BrHdr.RECO_wordtype_bits := 32;
   end;
-
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
   if lOutFName = '' then
      lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))+'.nii'
@@ -866,7 +894,7 @@ begin
   BrReport(BrHdr, lRecoFName, lOutFName, lVerbose);
   BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
   SaveNiHdr (lOutFName, NiHdr);
-  CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr);
+  CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
 end;
 
 procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName: boolean; var nOK: integer);
