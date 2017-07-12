@@ -24,10 +24,10 @@ type
   TMat = array[1..4, 1..4] of single;
   TBrukerHdr = Record
     RECO_byte_order_little, RECO_transposition_varies, has_d3proc_file: boolean;
-    RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme: integer;
+    RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed, ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
-    ACQ_protocol_name : string[79];
+    ACQ_protocol_name, ACQ_method : string[79];
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
     HdrSz : longint; //MUST BE 348
@@ -493,6 +493,10 @@ begin
            BrHdr.ACQ_nr_completed := BrGetInt(lStr);
         if AnsiPos('##$RG=', lStr) = 1 then
            BrHdr.ACQ_RG := BrGetFloat(lStr);
+        if AnsiPos('##$ACQ_method=', lStr) = 1 then
+           BrHdr.ACQ_method := BrGetString(lFile);
+        if AnsiPos('##$ACQ_n_echo_images', lStr) = 1 then
+           BrHdr.ACQ_n_echo_images := BrGetInt(lStr);
   end;
   result := true;
   closefile(lFile);
@@ -549,6 +553,7 @@ begin
      if not Verbose then exit;
      showmsg('Bruker Source: '+InName);
      showmsg('ACQ_protocol_name : ' + BrHdr.ACQ_protocol_name);
+     showmsg('ACQ_method : ' + BrHdr.ACQ_method);
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
      else
@@ -838,6 +843,9 @@ begin
   end;  //swap image data to have native endian
   if BrHdr.has_d3proc_file then //based on one image from Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr);
+  if AnsiCompareStr(BrHdr.ACQ_method, 'Bruker_RARE') = 0 then
+    if BrHdr.ACQ_n_echo_images > 1 then
+      SwapDimsZT(p, ImgBytes, lNiHdr);
   AssignFile(lOutF, lNiiFName);
   Reset(lOutF);
   Seek(lOutF, sizeof(TNiHdr));
