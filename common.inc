@@ -1,6 +1,6 @@
 const
 
-kVers = 'Bruker2NIfTI v1.0.20170303 : by Matthew Brett, Andrew Janke, Chris Rorden.'
+kVers = 'Bruker2NIfTI v1.0.20170707 : by Matthew Brett, Andrew Janke, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
 {$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
 {$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}

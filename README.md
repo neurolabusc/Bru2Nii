@@ -33,6 +33,10 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Versions
 
+7July2017 : v1.0.20170707
+ - Convert [multiple-echo RARE sequences](https://github.com/neurolabusc/Bru2Nii/pull/11).
+ - Convert [multiple reco directories](https://github.com/neurolabusc/Bru2Nii/issues/9).
+
 3Mar2017 : v1.0.20170303
  - Filenames include EXPNO and PROCNO, e.g. X1P2.
  - Experimental support for images that do not include reco files.

@@ -12,7 +12,7 @@ uses
 type
   { TForm1 }
   TForm1 = class(TForm)
-    ConvertBtn: TSpeedButton;
+    Button1: TButton;
     ConvertLabel: TLabel;
     FOVx10Check: TCheckBox;
     OnlyConvert3DCheck: TCheckBox;
@@ -58,7 +58,7 @@ end;
 procedure TForm1.ConvertBtnClick(Sender: TObject);
 begin
      opendialog1.Filter := '"subject" or "acqp"|subject;acqp';
-     opendialog1.Title:='Select  Bruker format file file';
+     opendialog1.Title:='Select  Bruker format file';
      if not opendialog1.Execute then exit;
      Form1.Memo1.lines.Clear;
      ConvertFile (opendialog1.FileName);
