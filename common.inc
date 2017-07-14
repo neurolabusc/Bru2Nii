@@ -683,7 +683,7 @@ end;
 function BrHdr2NII (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; ImgBytes: integer; var FName: string): boolean;
 //convert Bruker Header format to NIfTI format
 var
-    i: integer;
+    x,i: integer;
 begin
   result := false;
   ClearHdr (NiHdr);
@@ -726,6 +726,20 @@ begin
      NiHdr.dim[3] :=  BrHdr.ACQ_NSLICES;
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
     NiHdr.dim[3] := BrHdr.ACQ_NI;
+  if (BrHdr.has_d3proc_file) and (BrHdr.RECO_wordtype_bits = 16) then begin  //patch Bruker bug where some 32 bit EPI files report 16 bits
+      //this is a kludge for a Bruker bug where 32-bit data was reported as 16
+      // we need to be careful, as recent datasets do not seem to exhibit this bug
+      // for case without bug, see test images of https://github.com/SebastianoF/bruker2nifti
+      x := 2; //we expect 2 bytes per voxel
+      for i := 1 to 4 do
+          if NiHdr.dim[i] > 0 then
+            x := x * NiHdr.dim[i];
+      if ((x * 2) = ImgBytes) then begin
+         showmsg('Applying patch for borked Bruker EPI scans: assuming 32 (not 16) bit data');
+         NiHdr.datatype := 8;
+         NiHdr.bitpix := 32;
+      end;
+  end;
   if NiHdr.dim[3] > 1 then begin
      NiHdr.dim[4] := ImgBytes div  ((NiHdr.bitpix div 8 ) * NiHdr.dim[1]*NiHdr.dim[2]*NiHdr.dim[3]) ;
      if (BrHdr.ACQ_NR > 1) and (BrHdr.ACQ_NR <> NiHdr.dim[4]) then
@@ -841,8 +855,8 @@ begin
     if (BrHdr.RECO_wordtype_bits = 16) then
        Swap16(p, ImgBytes);
   end;  //swap image data to have native endian
-  if BrHdr.has_d3proc_file then //based on one image from Mikaël Naveau
-    SwapDimsZT(p, ImgBytes, lNiHdr);
+  //if BrHdr.has_d3proc_file then //based on one image from Mikaël Naveau
+  //  SwapDimsZT(p, ImgBytes, lNiHdr);
   if AnsiCompareStr(BrHdr.ACQ_method, 'Bruker_RARE') = 0 then
     if BrHdr.ACQ_n_echo_images > 1 then
       SwapDimsZT(p, ImgBytes, lNiHdr);
@@ -880,10 +894,6 @@ begin
   if not BrReadRECO(lRecoFName, BrHdr) then exit;
   BrReadMETHOD(lMethodFName, BrHdr);
   BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
-  if BrHdr.has_d3proc_file then begin
-     showmsg('Found "d3proc" file: assuming 32-bit data');
-     BrHdr.RECO_wordtype_bits := 32;
-  end;
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
   if lOutFName = '' then
      lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))+'.nii'
