@@ -20,15 +20,17 @@ type
   TVec = Record
     v: array [1..9] of single;
   end;
-  TMat = array[1..4, 1..4] of single;
+  TVecN = array of single;
+  TMat = array[1..4, 1..4] of double;
   TBrukerHdr = Record
-    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived: boolean;
+    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_ScalingVaries: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
     ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
     VISU_Slice_Order: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId : string[79];
+    VISU_Scaling: TVecN;
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
     HdrSz : longint; //MUST BE 348
@@ -209,20 +211,6 @@ begin
   FindClose(SearchRec);
 end;
 
-procedure SaveNiHdr (lHdrName: string; lNiHdr: TNiHdr);
-//save 348 byte NIfTI header
-var
-lF: file;
-lHdr: TNiHdr;
-begin
-  lHdr := lNiHdr;
-  FileMode := 2; //read/write
-  AssignFile(lF,lHdrName);
-  Rewrite(lF,sizeof(TNiHdr));
-  BlockWrite(lF,lHdr, 1);
-  CloseFile(lF);
-end;
-
 function UniqueFilename(InStr: string): string;
 //ensure we do not overwrite existing file
 var
@@ -331,6 +319,8 @@ begin
      result.VISU_SeriesTypeId:= '';
      result.VISU_IsDerived := false;
      result.VISU_Slice_Order:= 1;
+     result.VISU_ScalingVaries := false;
+     setlength(result.VISU_Scaling,0);
 end;
 
 function BrArrayVaries(var lFile: TextFile; lFname: string; var lVaries: boolean): single;
@@ -366,6 +356,34 @@ begin
      end;
      //if lVaries then
      //   showmsg('WARNING: RECO_transposition varies: unable to convert to NIfTI (localizer scan?) '+lFName);
+end;
+
+function BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN): boolean;
+var
+   lStart,lEnd, n, i: integer;
+   mx,mn: single;
+begin
+     setlength(lRA,0); //empty
+     if Eof(lFile) then exit;
+     lStart := AnsiPos('(', lStr)+1;
+     lEnd := AnsiPos(')', lStr);
+     n := strtoint(trim(Copy(lStr,lStart, lEnd-lStart)));
+     if n < 1 then exit (false);
+     setlength(lRA,n);
+     //profound
+     for i := 0 to (N-1) do
+         Read(lFile, lRA[i]);
+     readln(lFile);
+     //showmessage(inttostr(N));
+     mx := lRA[i];
+     mn := mx;
+     for i := 0 to (N-1) do
+       if lRA[i] > mx then
+          mx := lRA[i];
+     for i := 0 to (N-1) do
+       if lRA[i] < mn then
+          mn := lRA[i];
+     result := (mn <> mx);
 end;
 
 function BrGetArray(var lFile: TextFile;  lStr: string; var lRA: TVec): single;
@@ -472,6 +490,8 @@ begin
           ReadLn(lFile, lStr);
           BrHdr.VISU_Slice_Order := Slice_Order(lStr);
         end;
+        if AnsiPos('##$VisuCoreDataSlope=', lStr) = 1 then //##$VisuCoreDataSlope=( 330 ) 1e-06 1e-09 1.34593219873039e-07 ....
+	   BrHdr.VISU_ScalingVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
   end;
   result := true;
   closefile(lFile);
@@ -613,6 +633,8 @@ begin
         showmsg('VISU_SeriesTypeId : ' + BrHdr.VISU_SeriesTypeId);
      if BrHdr.VISU_isDerived then
         showmsg('VISU derived data : true');
+     if BrHdr.VISU_ScalingVaries then
+        showmsg('VISU scaling datvariesa : true');
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
      else
@@ -766,6 +788,7 @@ begin
      exit;
   end;
   if (NiHdr.dim[3] < 1) then NiHdr.dim[3]  := 1;
+  if (NiHdr.dim[4] < 1) then NiHdr.dim[4]  := 1;
   for i := 1 to 2 do begin
         if BrHdr.RECO_size.v[i] = 0 then begin
           NiHdr.pixdim[i] := 1;
@@ -889,7 +912,59 @@ begin
      freemem(pIn);
 end;
 
-procedure CpyImg (lRawFName, lNiiFName: string; ImgBytes: integer; BrHdr: TBrukerHdr; lNiHdr: TNiHdr);
+procedure Rescale(var p: pointer; var ImgBytes: integer; var BrHdr: TBrukerHdr; var NiHdr: TNiHdr);
+type
+   f32 = array [0..0] of single;
+   f32p0 = ^f32;
+   i32 = array [0..0] of int32;
+   i32p0 = ^i32;
+   i16 = array [0..0] of int16;
+   i16p0 = ^i16;
+var
+   xy, xyVox, ImgBytesOut, i, z: integer;
+   f : single;
+   i8in: pointer;
+   i16in: i16p0;
+   i32in: i32p0;
+   f32out: f32p0;
+   nslices: integer;
+begin
+  xyVox := NiHdr.dim[1]*NiHdr.dim[2];
+  nslices := NiHdr.dim[3] * NiHdr.dim[4];
+  ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
+  if (not BrHdr.VISU_ScalingVaries) or (nslices < 2) or (nslices <> length(BrHdr.VISU_Scaling))  then
+     exit;
+  getmem(i8in, ImgBytes);
+  Move(p^,i8in^,ImgBytes);//src, dest, bytes
+  i16in := i16p0(i8in);
+  i32in := i32p0(i8in);
+  if (ImgBytes <> ImgBytesOut  ) then begin  //NIFTI requires single scaling factor for all slices: we need to save data as 32-bit float
+       freemem(p, ImgBytes);
+       ImgBytes := ImgBytesOut;
+       getmem(p, ImgBytes);
+  end;
+  f32out := f32p0(p);
+  i := 0;
+  for z := 0 to (nslices-1) do begin
+    for xy := 1 to xyVox do begin
+        if NiHdr.bitpix = 2 then
+           f := i16in^[i]
+        else
+            f := i32in^[i];
+        f := (f * NiHdr.scl_slope) + NiHdr.scl_inter; //???not sure
+        f32out^[i] := f * BrHdr.VISU_Scaling[z];
+        i := i + 1;
+    end;
+  end;
+  freemem(i8in);
+  NiHdr.datatype := 16; //32-bit float
+  NiHdr.bitpix := 32;
+  NiHdr.scl_inter:= 0;
+  NiHdr.scl_slope:= 1;
+end;
+
+
+procedure CpyImg (lRawFName, lNiiFName: string; var ImgBytes: integer; var BrHdr: TBrukerHdr; var lNiHdr: TNiHdr);
 //copy image data from Bruker 2dseq file to NIfTI .nii file: forces native byte order
 var
   lOutF,lInF: File of byte;
@@ -912,14 +987,13 @@ begin
     if (BrHdr.RECO_wordtype_bits = 16) then
        Swap16(p, ImgBytes);
   end;  //swap image data to have native endian
+  if (BrHdr.VISU_ScalingVaries) and (BrHdr.VISU_IsDerived) then //??? not sure
+     Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr);
-  //if AnsiCompareStr(BrHdr.ACQ_method, 'Bruker_RARE') = 0 then
-  //  if BrHdr.ACQ_n_echo_images > 1 then
-  //    SwapDimsZT(p, ImgBytes, lNiHdr);
   AssignFile(lOutF, lNiiFName);
-  Reset(lOutF);
-  Seek(lOutF, sizeof(TNiHdr));
+  Rewrite(lOutF,1);
+  BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
   BlockWrite(lOutF, p^, ImgBytes);
   CloseFile(lOutF);
   freemem(p, ImgBytes);
@@ -955,13 +1029,14 @@ begin
   //BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
   if lOutFName = '' then
-     lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))+'.nii'
+     lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))
   else
-     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName)) )+'.nii';
+     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+  Extractfilename(ExtractFileDir(lImgFName)));
    if AppendProtocolName then
       lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
   if (AppendSeriesTypeId)  then
      lOutFName := AppendFName(lOutFName, BrHdr.VISU_SeriesTypeId);
+  lOutFName := changefileext(lOutFName,'.nii');
   lOutFName := UniqueFilename(lOutFName);
   if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
   if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
@@ -972,8 +1047,8 @@ begin
   end;
   BrReport(BrHdr, lRecoFName, lOutFName, lVerbose);
   BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
-  SaveNiHdr (lOutFName, NiHdr);
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
+  setlength(BrHdr.VISU_Scaling,0); //free memory
 end;
 
 procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; var nOK: integer);

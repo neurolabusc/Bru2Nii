@@ -81,7 +81,6 @@ begin
           end else
               inFname := cmd;
     end;
-    writeln(kVers);
     BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
 end;
 
