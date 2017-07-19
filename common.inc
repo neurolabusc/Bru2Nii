@@ -742,7 +742,8 @@ end;
 function BrHdr2NII (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; ImgBytes: integer; var FName: string): boolean;
 //convert Bruker Header format to NIfTI format
 var
-    x,i: integer;
+    i: integer;
+    str: string;
 begin
   result := false;
   ClearHdr (NiHdr);
@@ -803,9 +804,12 @@ begin
       NiHdr.dim[0] := 4 //4D data
   else
        NiHdr.dim[0] := 3;
-  if (length(BrHdr.ACQ_protocol_name) > 0) and (length(BrHdr.ACQ_protocol_name) < 80) then
-      for i := 1 to length(BrHdr.ACQ_protocol_name) do
-          NiHdr.descrip[i] := BrHdr.ACQ_protocol_name[i];
+  str := BrHdr.ACQ_protocol_name;
+  if (length(BrHdr.VISU_SeriesTypeId) > 0) and ((length(BrHdr.VISU_SeriesTypeId)+length(str)) < 79) then
+      str := str + ':' + BrHdr.VISU_SeriesTypeId;
+  if (length(str) > 0) and (length(str) < 80) then
+      for i := 1 to length(str) do
+          NiHdr.descrip[i] := str[i];
   NiHdr.slice_code:= BrHdr.METHOD_PVM_ObjOrderScheme;
   result := true;
 end;
@@ -953,7 +957,7 @@ begin
   if lOutFName = '' then
      lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))+'.nii'
   else
-     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName)) );
+     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName)) )+'.nii';
    if AppendProtocolName then
       lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
   if (AppendSeriesTypeId)  then
@@ -995,6 +999,7 @@ procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert
 var
   nOK: integer = 0;
 begin
+  showmsg(kVers);
   if not DirectoryExists(FName) then
     FName := ExtractFilePath(FName);
   if OutFName = '' then begin
