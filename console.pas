@@ -2,15 +2,10 @@ unit console;
 {$ifdef fpc}{$mode objfpc}{$H+}{$endif}
 interface
 
-
-
 implementation
 
-
-
 uses
- {$ifndef fpc} strutils, {$endif}
-  Classes,SysUtils;
+ strutils,Classes,SysUtils;
 
 procedure Showmsg(lStr: string);
 begin
@@ -33,6 +28,7 @@ begin
   writeln(' -h show these help instructions');
   writeln(' -o output filename');
   writeln(' -p append protocol name to output filename');
+  writeln(' -s append series type ID to output filename');
   writeln(' -v verbose conversion comments');
   writeln('Examples:');
 {$IFDEF UNIX}
@@ -52,11 +48,12 @@ procedure ProcessParamStr;
 var
   inFname, outFname, cmd: string;
   i: integer;
-  FOVx10, verbose, OnlyConvert3D, AppendProtocolName: boolean;
+  FOVx10, verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean;
 begin
     FOVx10 := true;
     Verbose := false;
     AppendProtocolName := false;
+    AppendSeriesTypeID := false;
     OnlyConvert3D := true;
     outFname := '';
     i := 1;
@@ -72,6 +69,8 @@ begin
                WriteHelp
             else if AnsiPos('-p', cmd) = 1 then
                AppendProtocolName := true
+            else if AnsiPos('-s', cmd) = 1 then
+                 AppendSeriesTypeID := true
             else if (AnsiPos('-o', cmd) = 1) and (i <= (ParamCount-1)) then begin
                outFname := ParamStr(i);
                i := i + 1;
@@ -82,7 +81,7 @@ begin
           end else
               inFname := cmd;
     end;
-    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName);
+    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
 end;
 
 begin

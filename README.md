@@ -33,7 +33,8 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Versions
 
-7July2017 : v1.0.20170707
+19July2017 : v1.0.20170719
+ - Uses [visu_pars](https://github.com/neurolabusc/Bru2Nii/issues/12) file to detect data precision, slice order and adds ability to include Series Type ID in filename.
  - Convert [multiple-echo RARE sequences](https://github.com/neurolabusc/Bru2Nii/pull/11).
  - Convert [multiple reco directories](https://github.com/neurolabusc/Bru2Nii/issues/9).
 
@@ -67,7 +68,9 @@ Being inspired by a Perl script we maintain the same license (http://dev.perl.or
 
 ##### Links
 
- * [pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv)
+ * [bruker2nifti_qa](https://github.com/naveau/bruker2nifti_qa) provides sample Bruker datasets to validate conversion.
+ * [bruker2nifti](https://github.com/SebastianoF/bruker2nifti) is a scriptable Python tool for conversion.
+ * [pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv).
  * [Bruker2Analyze](http://www.mccauslandcenter.sc.edu/mricro/mricro/bru2anz/) is another Bruker to Analyze conversion tool.
  * Matthew Brett notes that the example Bruker data text files report themselves as being in [JCAMP-DX
 +format](http://jcamp-dx.org/). In particular, the example files say they are in JCAMP-DX [4.24 format](http://jcamp-dx.org/protocols/dxir01.pdf).

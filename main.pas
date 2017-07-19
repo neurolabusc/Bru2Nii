@@ -7,11 +7,12 @@ interface
 uses
  {$ifndef fpc} ShellAPI,messages, strutils, {$endif}
   SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
-  StdCtrls, ExtCtrls,  Process,
+  StdCtrls, ExtCtrls,  Process, strutils,
   Classes;
 type
   { TForm1 }
   TForm1 = class(TForm)
+    AppendSeriesTypeIDCheck: TCheckBox;
     Button1: TButton;
     ConvertLabel: TLabel;
     FOVx10Check: TCheckBox;
@@ -52,7 +53,7 @@ end;
 
 procedure TForm1.ConvertFile(FName: string);
 begin
-   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked);
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked);
 end;
 
 procedure TForm1.ConvertBtnClick(Sender: TObject);

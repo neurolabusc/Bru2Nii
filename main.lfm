@@ -20,11 +20,11 @@ object Form1: TForm1
   end
   object Panel1: TPanel
     Left = 0
-    Height = 120
+    Height = 144
     Top = 0
     Width = 719
     Align = alTop
-    ClientHeight = 120
+    ClientHeight = 144
     ClientWidth = 719
     TabOrder = 0
     object FOVx10Check: TCheckBox
@@ -42,7 +42,7 @@ object Form1: TForm1
       Left = 224
       Height = 18
       Hint = 'Report image conversion details'
-      Top = 86
+      Top = 120
       Width = 70
       Caption = 'Verbose'
       TabOrder = 3
@@ -76,11 +76,20 @@ object Form1: TForm1
       OnClick = ConvertBtnClick
       TabOrder = 4
     end
+    object AppendSeriesTypeIDCheck: TCheckBox
+      Left = 224
+      Height = 18
+      Hint = 'Includes series type ID name to NIfTI filename (e.g. ''T1_1.nii'')'
+      Top = 88
+      Width = 218
+      Caption = 'Append serie type ID to filename'
+      TabOrder = 5
+    end
   end
   object Memo1: TMemo
     Left = 2
-    Height = 434
-    Top = 122
+    Height = 410
+    Top = 146
     Width = 715
     Align = alClient
     BorderSpacing.Bottom = 2
