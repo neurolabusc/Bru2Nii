@@ -971,9 +971,9 @@ var
   p: Pointer;
 begin
   getmem(p, ImgBytes);
+  FileMode := 0; //Set file access to read only
   AssignFile(lInF, lRawFName);
   Reset(lInF);
-  FileMode := 0; //Set file access to read only
   BlockRead(lInF, p^, ImgBytes);
   CloseFile(lInF);
   FileMode := 2; //Set file access to read/write
@@ -1017,7 +1017,6 @@ begin
   lAcqpDir := extractfilepath(lAcqpFName);
   if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir) then exit;
   if not BrFindFile(lBaseDir,lRecoFName,'reco',true, lAcqpDir) then exit;
-  showmsg('');
   BrFindFile(lBaseDir,lMethodFName,'method',true, ''); //optional - do not exit if missing
   ImgBytes := FSize(lImgFName);
   BrHdr := BrClear;
