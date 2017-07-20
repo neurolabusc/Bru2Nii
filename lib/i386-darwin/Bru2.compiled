@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/local/bin/fpc" Date="1486907966"/>
-  <Params Value=" -MObjFPC -Scgi -CX -O3 -Xs -l -vewnhibq -Fi/Users/rorden/Documents/pas/Bru2Nii/lib/i386-darwin -Fu/Users/rorden/Documents/pas/Bru2Nii/ -FU/Users/rorden/Documents/pas/Bru2Nii/lib/i386-darwin/ Bru2.lpr"/>
-</CONFIG>

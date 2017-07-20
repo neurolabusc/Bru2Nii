@@ -24,6 +24,7 @@ begin
   writeln(' Converts Bruker "subject" or "acqp" MRI images');
   writeln('Options:');
   writeln(' -a actual size (otherwise x10 scale so animals match human)');
+  writeln(' -d disable calibrated scaling unless scaling varies (smaller files)');
   writeln(' -f force conversion of localizer images (multiple slice orientations)');
   writeln(' -h show these help instructions');
   writeln(' -o output filename');
@@ -48,12 +49,13 @@ procedure ProcessParamStr;
 var
   inFname, outFname, cmd: string;
   i: integer;
-  FOVx10, verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean;
+  FOVx10, verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling: boolean;
 begin
     FOVx10 := true;
     Verbose := false;
     AppendProtocolName := false;
     AppendSeriesTypeID := false;
+    AlwaysApplyVisuScaling := true;
     OnlyConvert3D := true;
     outFname := '';
     i := 1;
@@ -63,6 +65,8 @@ begin
           if AnsiPos('-', cmd) = 1 then begin
             if AnsiPos('-a', cmd) = 1 then
                FOVx10 := false
+            else if AnsiPos('-d', cmd) = 1 then
+               AlwaysApplyVisuScaling := false
             else if AnsiPos('-f', cmd) = 1 then
                OnlyConvert3D := false
             else if AnsiPos('-h', cmd) = 1 then
@@ -81,7 +85,7 @@ begin
           end else
               inFname := cmd;
     end;
-    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
+    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling);
 end;
 
 begin

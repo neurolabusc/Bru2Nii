@@ -22,6 +22,7 @@ type
     Memo1: TMemo;
     OpenDialog1: TOpenDialog;
     Panel1: TPanel;
+    AlwaysApplyVisuScaling: TCheckBox;
     procedure ConvertBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure ConvertFile(FName: string);
@@ -53,7 +54,7 @@ end;
 
 procedure TForm1.ConvertFile(FName: string);
 begin
-   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked);
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked, AlwaysApplyVisuScaling.Checked);
 end;
 
 procedure TForm1.ConvertBtnClick(Sender: TObject);

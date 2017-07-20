@@ -1,5 +1,5 @@
 const
-kVers = 'Bruker2NIfTI v1.0.20170719 : by Matthew Brett, Andrew Janke, Chris Rorden.'
+kVers = 'Bruker2NIfTI v1.0.20170719 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
 {$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
 {$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}
@@ -30,7 +30,7 @@ type
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId : string[79];
-    VISU_Scaling: TVecN;
+    VISU_Scaling, VISU_Intercept: TVecN;
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
     HdrSz : longint; //MUST BE 348
@@ -321,9 +321,10 @@ begin
      result.VISU_Slice_Order:= 1;
      result.VISU_ScalingVaries := false;
      setlength(result.VISU_Scaling,0);
+     setlength(result.VISU_Intercept,0);
 end;
 
-function BrArrayVaries(var lFile: TextFile; lFname: string; var lVaries: boolean): single;
+function BrArrayVaries(var lFile: TextFile; var lVaries: boolean): single;
 //return first value in array - generate error if different elements of array have different values
 // This helps detect if a single Bruker image is composed of orthogonal slices (coronal, sagittal, axial)
 const
@@ -364,7 +365,7 @@ var
    mx,mn: single;
 begin
      setlength(lRA,0); //empty
-     if Eof(lFile) then exit;
+     if Eof(lFile) then exit(false);
      lStart := AnsiPos('(', lStr)+1;
      lEnd := AnsiPos(')', lStr);
      n := strtoint(trim(Copy(lStr,lStart, lEnd-lStart)));
@@ -469,8 +470,10 @@ function BrReadVISU_PARS (fname: string; var BrHdr: TBrukerHdr): boolean;
 var
    lFile: TextFile;
    lStr :string;
+   InterceptVaries: boolean;
 begin
   result := false;
+  InterceptVaries := false;
   if not fileexists(fname) then exit;
   assignfile(lFile,fname);
   reset(lFile);
@@ -491,9 +494,13 @@ begin
           BrHdr.VISU_Slice_Order := Slice_Order(lStr);
         end;
         if AnsiPos('##$VisuCoreDataSlope=', lStr) = 1 then //##$VisuCoreDataSlope=( 330 ) 1e-06 1e-09 1.34593219873039e-07 ....
-	   BrHdr.VISU_ScalingVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
+	   		BrHdr.VISU_ScalingVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
+	   	if AnsiPos('##$VisuCoreDataOffs=', lStr) = 1 then //
+	   		InterceptVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Intercept);
   end;
   result := true;
+  if InterceptVaries then
+  	BrHdr.VISU_ScalingVaries := true; //reports true if either slope or intercept varies
   closefile(lFile);
 end;
 
@@ -597,7 +604,7 @@ begin
         if AnsiPos('##$RECO_wordtype=_16BIT_SGN_INT', lStr) = 1 then
            BrHdr.RECO_wordtype_bits := 16;
         if AnsiPos('##$RECO_transposition=', lStr) = 1 then
-           BrHdr.RECO_transposition  := round(BrArrayVaries(lFile, fname, BrHdr.RECO_transposition_varies ));
+           BrHdr.RECO_transposition  := round(BrArrayVaries(lFile, BrHdr.RECO_transposition_varies ));
         if AnsiPos('##$RECO_byte_order=littleEndian', lStr) = 1 then
            BrHdr.RECO_byte_order_little:= true;
         if AnsiPos('##$RECO_size=', lStr) = 1 then
@@ -607,9 +614,9 @@ begin
         if AnsiPos('##$RECO_fov=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.RECO_fov);
         if AnsiPos('##$RECO_map_offset=', lStr) = 1 then
-           BrHdr.RECO_map_offset  := BrArrayVaries(lFile, fname, RECO_map_offset_varies );
+           BrHdr.RECO_map_offset  := BrArrayVaries(lFile, RECO_map_offset_varies );
         if AnsiPos('##$RECO_map_slope=', lStr) = 1 then
-           BrHdr.RECO_map_slope  := BrArrayVaries(lFile, fname, RECO_map_slope_varies );
+           BrHdr.RECO_map_slope  := BrArrayVaries(lFile, RECO_map_slope_varies );
   end;
   result := true;
   closefile(lFile);
@@ -634,7 +641,7 @@ begin
      if BrHdr.VISU_isDerived then
         showmsg('VISU derived data : true');
      if BrHdr.VISU_ScalingVaries then
-        showmsg('VISU scaling datvariesa : true');
+        showmsg('VISU scaling varies : true');
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
      else
@@ -932,7 +939,7 @@ begin
   xyVox := NiHdr.dim[1]*NiHdr.dim[2];
   nslices := NiHdr.dim[3] * NiHdr.dim[4];
   ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
-  if (not BrHdr.VISU_ScalingVaries) or (nslices < 2) or (nslices <> length(BrHdr.VISU_Scaling))  then
+  if (not BrHdr.VISU_ScalingVaries) or (nslices < 2) or (nslices <> length(BrHdr.VISU_Intercept)) or (nslices <> length(BrHdr.VISU_Scaling))  then
      exit;
   getmem(i8in, ImgBytes);
   Move(p^,i8in^,ImgBytes);//src, dest, bytes
@@ -946,13 +953,16 @@ begin
   f32out := f32p0(p);
   i := 0;
   for z := 0 to (nslices-1) do begin
+  	//if z = 0 then showmsg(format('Slice:Scaling:Offset %d : %g : %g', [z, BrHdr.VISU_Scaling[z], BrHdr.VISU_Intercept[z]]));
     for xy := 1 to xyVox do begin
-        if NiHdr.bitpix = 2 then
+        if NiHdr.bitpix = 16 then
            f := i16in^[i]
         else
             f := i32in^[i];
-        f := (f * NiHdr.scl_slope) + NiHdr.scl_inter; //???not sure
-        f32out^[i] := f * BrHdr.VISU_Scaling[z];
+        //VisuCoreDataSlope - Slope values for all frames. To get the real value y for a
+		//pixel x the following calculation must be performed y = slope * x + offset.
+        f := (f * BrHdr.VISU_Scaling[z]) + BrHdr.VISU_Intercept[z];
+        f32out^[i] := f;
         i := i + 1;
     end;
   end;
@@ -987,7 +997,7 @@ begin
     if (BrHdr.RECO_wordtype_bits = 16) then
        Swap16(p, ImgBytes);
   end;  //swap image data to have native endian
-  if (BrHdr.VISU_ScalingVaries) and (BrHdr.VISU_IsDerived) then //??? not sure
+  if (BrHdr.VISU_ScalingVaries) then //and (BrHdr.VISU_IsDerived) then //??? not sure
      Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr);
@@ -1004,7 +1014,7 @@ begin
     result := extractfilepath(FName)+AppendStr+extractfilename(FName);
 end;
 
-procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean);
+procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId, AlwaysApplyVisuScaling: boolean);
 //convert Bruker file to NIfTI
 var
     lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
@@ -1025,6 +1035,8 @@ begin
   BrReadMETHOD(lMethodFName, BrHdr);
   if BrFindFile(lBaseDir,lVisu_parsFName,'visu_pars',true,'') then
      BrReadVISU_PARS(lVisu_parsFName, BrHdr); //important: do this after RECO, derived images use VISU_PARS bitpix
+  if AlwaysApplyVisuScaling then
+  	BrHdr.VISU_ScalingVaries := true;
   //BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
   if lOutFName = '' then
@@ -1048,9 +1060,10 @@ begin
   BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
   setlength(BrHdr.VISU_Scaling,0); //free memory
+  setlength(BrHdr.VISU_Intercept,0); //free memory
 end;
 
-procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; var nOK: integer);
+procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling: boolean; var nOK: integer);
 //Find and convert any "2dseq" file in Dir and enclosed sub-directories
 var
   SR: TSearchRec;
@@ -1059,17 +1072,17 @@ begin
     try
       repeat
         if ((SR.Attr and faDirectory) = 0) and (SR.Name = '2dseq') then begin
-          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
+          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling);
           inc(nOK);
         end else if (SR.Name <> '.') and (SR.Name <> '..') then
-          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);  // recursive call!
+          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling, nOK);  // recursive call!
       until FindNext(Sr) <> 0;
     finally
       FindClose(SR);
     end;
 end;
 
-procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean);
+procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling: boolean);
 var
   nOK: integer = 0;
 begin
@@ -1082,7 +1095,7 @@ begin
     else
         OutFName := ExtractFilePath(FName)+'.nii';
   end;
-  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);
+  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling, nOK);
   if nOK = 0 then
     showmsg('Unable to find any "2dseq" files in '+FName)
   else
