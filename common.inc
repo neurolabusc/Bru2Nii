@@ -23,10 +23,10 @@ type
   TVecN = array of single;
   TMat = array[1..4, 1..4] of double;
   TBrukerHdr = Record
-    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_ScalingVaries: boolean;
+    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
     ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
-    VISU_Slice_Order: integer;
+    VISU_Slice_Order, VISU_ExperimentNumber, VISU_ProcessingNumber: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
     ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId : string[79];
@@ -317,9 +317,10 @@ begin
      result.ACQ_grad_matrix := BrVecZero;
      result.METHOD_PVM_SpatResol := BrVecZero;
      result.VISU_SeriesTypeId:= '';
+     result.VISU_ExperimentNumber := 0;
+     result.VISU_ProcessingNumber := 0;
      result.VISU_IsDerived := false;
      result.VISU_Slice_Order:= 1;
-     result.VISU_ScalingVaries := false;
      setlength(result.VISU_Scaling,0);
      setlength(result.VISU_Intercept,0);
 end;
@@ -359,32 +360,22 @@ begin
      //   showmsg('WARNING: RECO_transposition varies: unable to convert to NIfTI (localizer scan?) '+lFName);
 end;
 
-function BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN): boolean;
+procedure BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN);
 var
    lStart,lEnd, n, i: integer;
-   mx,mn: single;
 begin
      setlength(lRA,0); //empty
-     if Eof(lFile) then exit(false);
+     if Eof(lFile) then exit;
      lStart := AnsiPos('(', lStr)+1;
      lEnd := AnsiPos(')', lStr);
      n := strtoint(trim(Copy(lStr,lStart, lEnd-lStart)));
-     if n < 1 then exit (false);
+     if n < 1 then exit;
      setlength(lRA,n);
      //profound
      for i := 0 to (N-1) do
          Read(lFile, lRA[i]);
      readln(lFile);
      //showmessage(inttostr(N));
-     mx := lRA[i];
-     mn := mx;
-     for i := 0 to (N-1) do
-       if lRA[i] > mx then
-          mx := lRA[i];
-     for i := 0 to (N-1) do
-       if lRA[i] < mn then
-          mn := lRA[i];
-     result := (mn <> mx);
 end;
 
 function BrGetArray(var lFile: TextFile;  lStr: string; var lRA: TVec): single;
@@ -414,16 +405,36 @@ begin
      result := lRA.v[1];
 end;
 
+function TrimStr(lStr: string): string;
+//##$VisuExperimentNumber=2 -> "2"
+//##$VisuStation=( 65 ) -> "5"
+//##$VisuCoreOrientation=( 5, 9 ) -> "5"
+var
+   i,j: integer;
+begin
+  result := RightStr(lStr, length(lStr)-AnsiPos('=', lStr));
+  i := LastDelimiter('(',result);
+  j := LastDelimiter(',',result);
+  if j < 1 then
+     j := LastDelimiter(')',result);
+  if (j < 3) then
+     j := length(result)+1;
+  result := Copy(result, i+1,j-i-1);
+  result := trim(result);
+end;
+
 function BrGetInt (var lStr: string): integer;
 //read integer from Bruker header
 begin
-     result := StrToInt(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
+  result := StrToInt(TrimStr(lStr));
+  //result := StrToInt(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
 end;
 
 function BrGetFloat (var lStr: string): single;
 //read float from Bruker header
 begin
-     result := StrToFloat(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
+  result := StrToFloat(TrimStr(lStr));
+  //result := StrToFloat(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
 end;
 
 function BrGetString (var lFile: TextFile): string;
@@ -465,20 +476,89 @@ begin
      end;
 end;
 
+(*function LastInt(s: string): integer;
+//'##$VisuCoreOrientation=( 5, 9 ) ' returns 9
+var
+   i,j: integer;
+begin
+     i := LastDelimiter(',',s);
+     if i < 1 then
+        i := LastDelimiter('(',s);
+     j := LastDelimiter(')',s);
+     if (i < 1) or (j < i) then exit;
+     s := Copy(s, i+1,j-i-1);
+     s := trim(s);
+     result := strtointdef(s,0);
+end;*)
+
+(*function FirstInt(s: string): integer;
+//'##$VisuCoreOrientation=( 5, 9 ) ' returns 5
+var
+   i,j: integer;
+begin
+     i := LastDelimiter('(',s);
+     j := LastDelimiter(',',s);
+     if j < 1 then
+        j := LastDelimiter(')',s);
+     if (i < 1) or (j < i) then exit;
+     s := Copy(s, i+1,j-i-1);
+     s := trim(s);
+     result := strtointdef(s,0);
+end; *)
+
 function BrReadVISU_PARS (fname: string; var BrHdr: TBrukerHdr): boolean;
 //read Bruker format visu_pars file
 var
+   unusedVec: TVec;
    lFile: TextFile;
    lStr :string;
-   InterceptVaries: boolean;
 begin
   result := false;
-  InterceptVaries := false;
-  if not fileexists(fname) then exit;
+  if (fname = '') or (not fileexists(fname)) then exit;
   assignfile(lFile,fname);
   reset(lFile);
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
+
+        //properties also in ACQP file
+        if AnsiPos('##$VisuAcquisitionProtocol=', lStr) = 1 then
+           BrHdr.ACQ_protocol_name :=  BrGetString(lFile);
+        if AnsiPos('##$VisuAcqSequenceName=', lStr) = 1 then
+           BrHdr.ACQ_method := BrGetString(lFile);
+        if AnsiPos('##$VisuCoreOrientation=', lStr) = 1 then begin
+           BrHdr.ACQ_NI := BrGetInt(lStr);    //5 for ##$VisuCoreOrientation=( 5, 9 )
+           BrHdr.ACQ_NSLICES := BrHdr.ACQ_NI; //not sure how multiple echo images look?
+           BrGetArray(lFile, '(9)', BrHdr.ACQ_grad_matrix);
+        end;
+        if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then //! make sure this is not swapped with next
+           BrGetArray(lFile, lStr, BrHdr.ACQ_slice_sepn);
+        if AnsiPos('##$VisuCoreSlicePacksSliceDist', lStr) = 1 then begin
+           BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',unusedVec );
+           BrHdr.ACQ_slice_thick := BrHdr.METHOD_slice_distance;
+        end;
+        if AnsiPos('##$VisuAcqRepetitionTime=', lStr) = 1 then
+           BrGetArray(lFile, lStr, BrHdr.ACQ_repetition_time);
+        if AnsiPos('##$VisuAcqEchoTime=', lStr) = 1 then
+           BrHdr.ACQ_n_echo_images := BrGetInt(lStr);
+        //properties also in RECO file
+        if AnsiPos('##$VisuCoreByteOrder=littleEndian', lStr) = 1 then
+           BrHdr.RECO_byte_order_little:= true; //
+        if AnsiPos('##$VisuCoreWordType=_16BIT_SGN_INT', lStr) = 1 then //
+           BrHdr.RECO_wordtype_bits := 16;
+        if AnsiPos('##$VisuCoreWordType=_32BIT_SGN_INT', lStr) = 1 then //
+           BrHdr.RECO_wordtype_bits := 32;
+        if AnsiPos('##$VisuCoreSize=', lStr) = 1 then
+           BrGetArray(lFile, lStr, BrHdr.RECO_size);
+        if AnsiPos('##$VisuCoreExtent=', lStr) = 1 then begin
+           BrGetArray(lFile, lStr, BrHdr.RECO_fov);
+           BrHdr.RECO_fov.v[1] := BrHdr.RECO_fov.v[1] * 0.1;
+           BrHdr.RECO_fov.v[2] := BrHdr.RECO_fov.v[2] * 0.1;
+        end;
+        //properties only in VISU
+        if AnsiPos('##$VisuExperimentNumber=', lStr) = 1 then
+          BrHdr.VISU_ExperimentNumber := BrGetInt(lStr);
+        if AnsiPos('##$VisuProcessingNumber=', lStr) = 1 then
+           BrHdr.VISU_ProcessingNumber := BrGetInt(lStr);
         if AnsiPos('##$VisuSeriesTypeId', lStr) = 1 then begin
            BrHdr.VISU_SeriesTypeId :=  BrGetString(lFile);
            //SeriesTypeId begins with "ACQ_" (e.g. "ACQ_BRUKER_PVM") for raw data and "DERIVED_" (e.g. "DERIVED_ISA") for derived data
@@ -494,14 +574,18 @@ begin
           BrHdr.VISU_Slice_Order := Slice_Order(lStr);
         end;
         if AnsiPos('##$VisuCoreDataSlope=', lStr) = 1 then //##$VisuCoreDataSlope=( 330 ) 1e-06 1e-09 1.34593219873039e-07 ....
-	   		BrHdr.VISU_ScalingVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
-	   	if AnsiPos('##$VisuCoreDataOffs=', lStr) = 1 then //
-	   		InterceptVaries := BrGetArrayN(lFile, lStr, BrHdr.VISU_Intercept);
+	   BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
+	if AnsiPos('##$VisuCoreDataOffs=', lStr) = 1 then //
+	   BrGetArrayN(lFile, lStr, BrHdr.VISU_Intercept);
   end;
-  result := true;
-  if InterceptVaries then
-  	BrHdr.VISU_ScalingVaries := true; //reports true if either slope or intercept varies
+  //we can derive mm resolution from FOV and voxel resolution
+  if (BrHdr.RECO_size.v[1] > 0) then
+     BrHdr.METHOD_PVM_SpatResol.v[1] := BrHdr.RECO_fov.v[1]/BrHdr.RECO_size.v[1];
+  if (BrHdr.RECO_size.v[2] > 0) then
+     BrHdr.METHOD_PVM_SpatResol.v[2] := BrHdr.RECO_fov.v[1]/BrHdr.RECO_size.v[2];
   closefile(lFile);
+  result := true;
+  //result := false;
 end;
 
 function BrReadMETHOD (fname: string; var BrHdr: TBrukerHdr): boolean;
@@ -512,7 +596,7 @@ var
    lUnused: TVec;
 begin
   result := false;
-  if not fileexists(fname) then exit;
+  if (fname = '') or (not fileexists(fname)) then exit;
   assignfile(lFile,fname);
   reset(lFile);
   while not Eof(lFile) do begin
@@ -542,7 +626,7 @@ var
     lUnused: TVec;
 begin
   result := false;
-  if not fileexists(fname) then exit;
+  if (fname = '') or (not fileexists(fname)) then exit;
   assignfile(lFile,fname);
   reset(lFile);
   while not Eof(lFile) do begin
@@ -568,8 +652,6 @@ begin
            BrHdr.ACQ_NI := BrGetInt(lStr);
         if AnsiPos('##$ACQ_NSLICES=', lStr) = 1 then //##$ACQ_NSLICES=64
            BrHdr.ACQ_NSLICES := BrGetInt(lStr);
-        if AnsiPos('##$NSLICES=', lStr) = 1 then //##$NSLICES=64
-             BrHdr.ACQ_NSLICES := BrGetInt(lStr);
         if AnsiPos('##$NR=', lStr) = 1 then
            BrHdr.ACQ_NR := BrGetInt(lStr);
         if AnsiPos('##$ACQ_nr_completed', lStr) = 1 then
@@ -593,7 +675,7 @@ var
     RECO_map_offset_varies, RECO_map_slope_varies: boolean;
 begin
   result := false;
-  if not fileexists(fname) then exit;
+  if (fname = '') or (not fileexists(fname)) then exit;
   assignfile(lFile,fname);
   reset(lFile);
   BrHdr.RECO_wordtype_bits := 32; //default
@@ -640,8 +722,6 @@ begin
         showmsg('VISU_SeriesTypeId : ' + BrHdr.VISU_SeriesTypeId);
      if BrHdr.VISU_isDerived then
         showmsg('VISU derived data : true');
-     if BrHdr.VISU_ScalingVaries then
-        showmsg('VISU scaling varies : true');
      if BrHdr.RECO_byte_order_little then
         showmsg(' Endian: Little')
      else
@@ -935,12 +1015,22 @@ var
    i32in: i32p0;
    f32out: f32p0;
    nslices: integer;
+   isVaries: boolean = false;
 begin
-  xyVox := NiHdr.dim[1]*NiHdr.dim[2];
+  if (ImgBytes < 1) or (length(BrHdr.VISU_Intercept) < 1) or (length(BrHdr.VISU_Scaling) < 1) or (length(BrHdr.VISU_Intercept) <> length(BrHdr.VISU_Scaling)) then exit;
   nslices := NiHdr.dim[3] * NiHdr.dim[4];
-  ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
-  if (not BrHdr.VISU_ScalingVaries) or (nslices < 2) or (nslices <> length(BrHdr.VISU_Intercept)) or (nslices <> length(BrHdr.VISU_Scaling))  then
+  if (nslices <> length(BrHdr.VISU_Intercept)) then exit;
+  for i := 0 to (nslices-1) do begin
+      if (BrHdr.VISU_Intercept[i] <> BrHdr.VISU_Intercept[0]) then isVaries := true;
+      if (BrHdr.VISU_Scaling[i] <> BrHdr.VISU_Scaling[0]) then isVaries := true;
+  end;
+  if not isVaries then begin //all slopes and intercepts identical: apply to NIfTI header
+     NiHdr.scl_inter:= BrHdr.VISU_Intercept[0];
+     NiHdr.scl_slope:= BrHdr.VISU_Scaling[0] ;
      exit;
+  end;
+  xyVox := NiHdr.dim[1]*NiHdr.dim[2];
+  ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
   getmem(i8in, ImgBytes);
   Move(p^,i8in^,ImgBytes);//src, dest, bytes
   i16in := i16p0(i8in);
@@ -997,8 +1087,7 @@ begin
     if (BrHdr.RECO_wordtype_bits = 16) then
        Swap16(p, ImgBytes);
   end;  //swap image data to have native endian
-  if (BrHdr.VISU_ScalingVaries) then //and (BrHdr.VISU_IsDerived) then //??? not sure
-     Rescale(p, ImgBytes, BrHdr, lNiHdr);
+  Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr);
   AssignFile(lOutF, lNiiFName);
@@ -1014,43 +1103,52 @@ begin
     result := extractfilepath(FName)+AppendStr+extractfilename(FName);
 end;
 
-procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId, AlwaysApplyVisuScaling: boolean);
+procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean);
 //convert Bruker file to NIfTI
 var
-    lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
+    lOutDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
 begin
-  lBaseDir := extractfilepath(lDirStr);
-  if not BrFindFile(lBaseDir,lAcqpFName,'acqp',true,'') then exit;
-  lAcqpDir := extractfilepath(lAcqpFName);
-  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir) then exit;
-  if not BrFindFile(lBaseDir,lRecoFName,'reco',true, lAcqpDir) then exit;
-  BrFindFile(lBaseDir,lMethodFName,'method',true, ''); //optional - do not exit if missing
-  ImgBytes := FSize(lImgFName);
   BrHdr := BrClear;
-  if not BrReadACQP(lAcqpFName, BrHdr) then exit;
-  if not BrReadRECO(lRecoFName, BrHdr) then exit;
+  lBaseDir := extractfilepath(lDirStr);
+  BrFindFile(lBaseDir,lAcqpFName,'acqp',false,'');
+  lAcqpDir := extractfilepath(lAcqpFName);
+  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir) then exit;//required
+  ImgBytes := FSize(lImgFName);
+  if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
+  BrFindFile(lBaseDir,lRecoFName,'reco',false, lAcqpDir);
+  BrFindFile(lBaseDir,lMethodFName,'method',false, '');
+  BrFindFile(lBaseDir,lVisu_parsFName,'visu_pars',false,'');
+  if (lVisu_parsFName = '') and (lRecoFName = '') then begin
+     showmsg('Unable to find a "reco" or "visu_pars" file');
+     exit;
+  end;
+  BrReadVISU_PARS(lVisu_parsFName, BrHdr);
+  BrReadACQP(lAcqpFName, BrHdr);
+  BrReadRECO(lRecoFName, BrHdr);
   BrReadMETHOD(lMethodFName, BrHdr);
-  if BrFindFile(lBaseDir,lVisu_parsFName,'visu_pars',true,'') then
-     BrReadVISU_PARS(lVisu_parsFName, BrHdr); //important: do this after RECO, derived images use VISU_PARS bitpix
-  if AlwaysApplyVisuScaling then
-  	BrHdr.VISU_ScalingVaries := true;
   //BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
-  if lOutFName = '' then
-     lOutFName := ExtractFilePath(lAcqpFName)+'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+ Extractfilename(ExtractFileDir(lImgFName))
-  else
-     lOutFName := AppendFName(lOutFName, 'X'+Extractfilename(ExtractFileDir(lAcqpFName))+'P'+  Extractfilename(ExtractFileDir(lImgFName)));
-   if AppendProtocolName then
-      lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
-  if (AppendSeriesTypeId)  then
-     lOutFName := AppendFName(lOutFName, BrHdr.VISU_SeriesTypeId);
+  if BrHdr.VISU_ExperimentNumber = 0 then
+     BrHdr.VISU_ExperimentNumber := StrToIntDef(Extractfilename(ExtractFileDir(lAcqpFName)),123);
+  if BrHdr.VISU_ProcessingNumber = 0 then
+     BrHdr.VISU_ProcessingNumber := StrToIntDef(Extractfilename(ExtractFileDir(lImgFName)),321);
+  if (lOutFName = '') or (DirectoryExists(lOutFName)) then begin
+     if (lOutFName <> '') and (lOutFName[length(lOutFName)] <> pathdelim) then
+        lOutFName := lOutFName + pathdelim; // /home/dir -> /home/dir/
+     if (lOutFName = '') then
+        lOutFName := ExtractFilePath(lAcqpFName);
+     lOutFName := lOutFName + 'X'+inttostr(BrHdr.VISU_ExperimentNumber)+'P'+ inttostr(BrHdr.VISU_ProcessingNumber);
+     if AppendProtocolName then
+        lOutFName := AppendFName(lOutFName, BrHdr.ACQ_protocol_name);
+    if (AppendSeriesTypeId)  then
+       lOutFName := AppendFName(lOutFName, BrHdr.VISU_SeriesTypeId);
+  end;
   lOutFName := changefileext(lOutFName,'.nii');
   lOutFName := UniqueFilename(lOutFName);
   if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
-  if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
   if (BrHdr.RECO_transposition_varies)  then begin
      showmsg('WARNING: slices have different orientations (can not create a NIfTI volume, probably a localizer scan): '+ lImgFName);
      if OnlyConvert3D then
@@ -1063,7 +1161,7 @@ begin
   setlength(BrHdr.VISU_Intercept,0); //free memory
 end;
 
-procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling: boolean; var nOK: integer);
+procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; var nOK: integer);
 //Find and convert any "2dseq" file in Dir and enclosed sub-directories
 var
   SR: TSearchRec;
@@ -1072,17 +1170,17 @@ begin
     try
       repeat
         if ((SR.Attr and faDirectory) = 0) and (SR.Name = '2dseq') then begin
-          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling);
+          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
           inc(nOK);
         end else if (SR.Name <> '.') and (SR.Name <> '..') then
-          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling, nOK);  // recursive call!
+          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);  // recursive call!
       until FindNext(Sr) <> 0;
     finally
       FindClose(SR);
     end;
 end;
 
-procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling: boolean);
+procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean);
 var
   nOK: integer = 0;
 begin
@@ -1095,7 +1193,7 @@ begin
     else
         OutFName := ExtractFilePath(FName)+'.nii';
   end;
-  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, AlwaysApplyVisuScaling, nOK);
+  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);
   if nOK = 0 then
     showmsg('Unable to find any "2dseq" files in '+FName)
   else

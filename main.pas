@@ -22,11 +22,11 @@ type
     Memo1: TMemo;
     OpenDialog1: TOpenDialog;
     Panel1: TPanel;
-    AlwaysApplyVisuScaling: TCheckBox;
     procedure ConvertBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure ConvertFile(FName: string);
     procedure FormDropFiles(Sender: TObject; const FileNames: array of String);
+    procedure FormShow(Sender: TObject);
   private
     { private declarations }
     {$ifndef fpc} procedure WMDropFiles(var Msg: TWMDropFiles); message WM_DROPFILES; {$endif}
@@ -54,7 +54,7 @@ end;
 
 procedure TForm1.ConvertFile(FName: string);
 begin
-   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked, AlwaysApplyVisuScaling.Checked);
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked);
 end;
 
 procedure TForm1.ConvertBtnClick(Sender: TObject);
@@ -80,6 +80,11 @@ begin
      Form1.Memo1.lines.Clear;
      for lI := 0 to (length(FileNames)-1) do
          ConvertFile(Filenames[lI]);
+end;
+
+procedure TForm1.FormShow(Sender: TObject);
+begin
+     //BrConvertBatch ('/Users/rorden/tst/2','/Users/rorden/tst', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked);
 end;
 
 {$ifndef fpc}
