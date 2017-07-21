@@ -46,8 +46,6 @@ object Form1: TForm1
       Top = 112
       Width = 70
       Caption = 'Verbose'
-      Checked = True
-      State = cbChecked
       TabOrder = 3
     end
     object AppendProtocolNameCheck: TCheckBox

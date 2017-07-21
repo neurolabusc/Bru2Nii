@@ -23,7 +23,7 @@ type
   TVecN = array of single;
   TMat = array[1..4, 1..4] of double;
   TBrukerHdr = Record
-    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived: boolean;
+    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_FlipXY: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
     ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
     VISU_Slice_Order, VISU_ExperimentNumber, VISU_ProcessingNumber: integer;
@@ -228,13 +228,18 @@ begin
      result := '';
 end;
 
-function BrFindFile (var lxBaseDir,lxPath: string; lxFileName: string; lPrompt: boolean; ACQPdir: string): boolean;
+function BrFindFile (var lxBaseDir,lxPath: string; lxFileName: string; lPrompt: boolean; ACQPdir1, dir2dseq1: string): boolean;
 //start from basedir and search sub-folders for a file named filename.
 var
    lxSearchDir,lxNewDir, lxTemp : string;
    lxSearchRec: TSearchRec;
 begin
      result := false;
+     if (dir2dseq1 <> '') and (fileexists(dir2dseq1+lxFileName)) then begin
+        lxPath := dir2dseq1+lxFileName;
+        result := true;
+        exit;
+     end;
      lxSearchDir := lxBaseDir;
      lxPath := '';
      while (length(lxSearchDir) > 2) and (lxPath = '') do begin
@@ -265,8 +270,8 @@ begin
               lxPath := lxSearchDir+ lxFileName
         until (lxNewDir = '') {exhausted directories} or (lxPath <> '') {found file};
      end;
-     if (lxPath = '') and (ACQPdir <> '') then begin //hail mary : e.g. series 2 does not have a reco file, so use series 1. Kludge until Bruker adopts a sensible format
-        lxTemp := ACQPdir + 'pdata' + pathdelim + '1' + pathdelim + lxFileName;
+     if (lxPath = '') and (ACQPdir1 <> '') then begin //hail mary : e.g. series 2 does not have a reco file, so use series 1. Kludge until Bruker adopts a sensible format
+        lxTemp := ACQPdir1 + 'pdata' + pathdelim + '1' + pathdelim + lxFileName;
         if fileexists (lxTemp) then begin
               lxPath := lxTemp;
               showmsg('Warning: Unable to find '+lxFileName+' in '+lxBaseDir+' using '+lxPath );
@@ -320,6 +325,7 @@ begin
      result.VISU_ExperimentNumber := 0;
      result.VISU_ProcessingNumber := 0;
      result.VISU_IsDerived := false;
+     result.VISU_FlipXY := false;
      result.VISU_Slice_Order:= 1;
      setlength(result.VISU_Scaling,0);
      setlength(result.VISU_Intercept,0);
@@ -519,7 +525,6 @@ begin
   reset(lFile);
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
-
         //properties also in ACQP file
         if AnsiPos('##$VisuAcquisitionProtocol=', lStr) = 1 then
            BrHdr.ACQ_protocol_name :=  BrGetString(lFile);
@@ -530,12 +535,16 @@ begin
            BrHdr.ACQ_NSLICES := BrHdr.ACQ_NI; //not sure how multiple echo images look?
            BrGetArray(lFile, '(9)', BrHdr.ACQ_grad_matrix);
         end;
-        if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then //! make sure this is not swapped with next
-           BrGetArray(lFile, lStr, BrHdr.ACQ_slice_sepn);
-        if AnsiPos('##$VisuCoreSlicePacksSliceDist', lStr) = 1 then begin
+        if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then begin //= ACQ_slice_thick: slice thickness without gap
+           BrHdr.ACQ_slice_thick := BrGetArray(lFile, lStr, unusedVec);
+           //BrHdr.METHOD_slice_distance := BrHdr.ACQ_slice_sepn.v[1];
+           //BrHdr.ACQ_slice_thick := BrHdr.METHOD_slice_distance;
+        end;
+        //TO DO : multiple echoes, slice gap
+        (*if AnsiPos('##$VisuCoreSlicePacksSliceDist', lStr) = 1 then begin  //T2 rare lists as 0mm?
            BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',unusedVec );
            BrHdr.ACQ_slice_thick := BrHdr.METHOD_slice_distance;
-        end;
+        end; *)
         if AnsiPos('##$VisuAcqRepetitionTime=', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.ACQ_repetition_time);
         if AnsiPos('##$VisuAcqEchoTime=', lStr) = 1 then
@@ -547,8 +556,15 @@ begin
            BrHdr.RECO_wordtype_bits := 16;
         if AnsiPos('##$VisuCoreWordType=_32BIT_SGN_INT', lStr) = 1 then //
            BrHdr.RECO_wordtype_bits := 32;
-        if AnsiPos('##$VisuCoreSize=', lStr) = 1 then
+        //for some VISU files VisuCoreSize is XY in others it is YX
+        // it is unclear when we should choose one or the other representation
+        // therefore, we will keep the RECO value if it is available, as it
+        // does not exhibit this issue.
+        if (AnsiPos('##$VisuCoreSize=', lStr) = 1) and (BrHdr.RECO_size.v[1] = 0) then begin
            BrGetArray(lFile, lStr, BrHdr.RECO_size);
+           if (BrHdr.RECO_size.v[1] <> BrHdr.RECO_size.v[2]) then
+              showmsg('Warning: number of rows/columns may be swapped (relying on visu_pars)');
+        end;
         if AnsiPos('##$VisuCoreExtent=', lStr) = 1 then begin
            BrGetArray(lFile, lStr, BrHdr.RECO_fov);
            BrHdr.RECO_fov.v[1] := BrHdr.RECO_fov.v[1] * 0.1;
@@ -565,6 +581,10 @@ begin
            if AnsiPos('DERIVED_', BrHdr.VISU_SeriesTypeId) = 1 then
              BrHdr.VISU_IsDerived := true;
         end;
+        (*if AnsiPos('##$VisuAcqImagePhaseEncDir=', lStr) = 1 then begin
+          ReadLn(lFile, lStr);
+          if (lstr = 'row_slice_dir') then BrHdr.VISU_FlipXY:=true;
+        end;*)
         if AnsiPos('##$VisuCoreWordType=_32BIT_SGN_INT', lStr) = 1 then
            BrHdr.RECO_wordtype_bits := 32; //for derived images, VISU overwrites RECO
         if AnsiPos('##$VisuCoreWordType=_16BIT_SGN_INT', lStr) = 1 then
@@ -664,6 +684,8 @@ begin
            BrHdr.ACQ_n_echo_images := BrGetInt(lStr);
   end;
   result := true;
+  //if (BrHdr.ACQ_slice_thick <> BrHdr.ACQ_slice_sepn.v[1])then
+  //   showmsg(format('%g %g %s',[BrHdr.ACQ_slice_thick, BrHdr.ACQ_slice_sepn.v[1],fname]));
   closefile(lFile);
 end;
 
@@ -870,10 +892,20 @@ begin
   NiHdr.scl_slope:= (1/BrHdr.RECO_map_slope)/BrHdr.ACQ_RG;  //FP = (PV/RECO_map_slope + RECO_map_offset)/ ACQ_RG
   for i := 1 to 4 do
       NiHdr.dim[i] := round(BrHdr.RECO_size.v[i]);
-  if (NiHdr.dim[1] < 1) or (NiHdr.dim[2] < 1) then begin
-     showmsg('Error: first 2 dimensions of RECO_size must be non-zero'+FName);
+  if (NiHdr.dim[1] < 1) then begin
+     showmsg('Error: first dimension of RECO_size must be non-zero'+FName);
      exit;
   end;
+  if (NiHdr.dim[2] < 1) then NiHdr.dim[2]  := 1;
+  (*if true then begin //if (BrHdr.VISU_FlipXY) and (NiHdr.dim[2] > 1) then begin //Bruker report YX order [Row,Column] while NIfTI XY [Column,Row]
+     showmsg('swapping rows/columns');
+     //Only an issue for images where inplane resolution is different for rows and columns
+     //swizzle row/column
+     i := NiHdr.dim[2];
+     NiHdr.dim[2] := NiHdr.dim[1];
+     NiHdr.dim[1] := i;
+  end;*)
+
   if (NiHdr.dim[3] < 1) then NiHdr.dim[3]  := 1;
   if (NiHdr.dim[4] < 1) then NiHdr.dim[4]  := 1;
   for i := 1 to 2 do begin
@@ -889,8 +921,15 @@ begin
     NiHdr.pixdim[3] := BrHdr.METHOD_slice_distance //best source for distance between slices : includes gap
   else if BrHdr.RECO_size.v[3]> 0 then
     NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] //distance between slices, x10 FOV is CM not MM
-  else
-    NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
+  else if BrHdr.ACQ_slice_sepn.v[1] > 0 then
+    NiHdr.pixdim[3] := BrHdr.ACQ_slice_sepn.v[1]
+  else if BrHdr.ACQ_slice_thick > 0 then begin
+       showmsg('Warning: unable to determine distance between slices, using slice thickness (incorrect if gap between slices)');
+       NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
+  end else begin
+      showmsg('Error: Unable to determine distance between slices');
+      NiHdr.pixdim[3] := 1;
+  end;
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NSLICES > 0) and (BrHdr.ACQ_NR <= 1) and ((BrHdr.ACQ_NI mod BrHdr.ACQ_NSLICES) = 0) then
      NiHdr.dim[3] :=  BrHdr.ACQ_NSLICES;
@@ -984,6 +1023,7 @@ var
 begin
      xyBytes := lNiHdr.dim[1]*lNiHdr.dim[2]*(lNiHdr.bitpix div 8);
      if (lNiHdr.dim[3] < 2) or (lNiHdr.dim[4] < 2) or ((xyBytes*lNiHdr.dim[3]*lNiHdr.dim[4]) <> ImgBytes) then exit;
+     showmsg(' Swapping dimensions XYTZ -> XYZT');
      xyzBytes := xyBytes * lNiHdr.dim[3];
      getmem(pIn, ImgBytes);
      Move(p^,pIn^,ImgBytes);//src, dest, bytes
@@ -1106,31 +1146,32 @@ end;
 procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean);
 //convert Bruker file to NIfTI
 var
-    lOutDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
+    lImgDir, lOutDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
 begin
   BrHdr := BrClear;
   lBaseDir := extractfilepath(lDirStr);
-  BrFindFile(lBaseDir,lAcqpFName,'acqp',false,'');
+  BrFindFile(lBaseDir,lAcqpFName,'acqp',false,'','');
   lAcqpDir := extractfilepath(lAcqpFName);
-  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir) then exit;//required
+  if not BrFindFile(lBaseDir,lImgFName,'2dseq',true, lAcqpDir,'') then exit;//required
+  lImgDir:= extractfilepath(lImgFName);
   ImgBytes := FSize(lImgFName);
   if (ImgBytes < 1) then begin showmsg('Error: Empty 2dseq file'); exit; end;
-  BrFindFile(lBaseDir,lRecoFName,'reco',false, lAcqpDir);
-  BrFindFile(lBaseDir,lMethodFName,'method',false, '');
-  BrFindFile(lBaseDir,lVisu_parsFName,'visu_pars',false,'');
+  BrFindFile(lBaseDir,lRecoFName,'reco',false, lAcqpDir,lImgDir);
+  BrFindFile(lBaseDir,lMethodFName,'method',false, lAcqpDir,lImgDir);
+  BrFindFile(lBaseDir,lVisu_parsFName,'visu_pars',false, lAcqpDir,lImgDir);
   if (lVisu_parsFName = '') and (lRecoFName = '') then begin
      showmsg('Unable to find a "reco" or "visu_pars" file');
      exit;
   end;
-  BrReadVISU_PARS(lVisu_parsFName, BrHdr);
   BrReadACQP(lAcqpFName, BrHdr);
   BrReadRECO(lRecoFName, BrHdr);
   BrReadMETHOD(lMethodFName, BrHdr);
   //BrHdr.has_d3proc_file := fileexists(ExtractFilePath(lImgFName)+ 'd3proc');
   //Label files based on EXPNO and PROCNO: ACQP is in EXPNO directory 2dSeq in PROCNO directory
+  BrReadVISU_PARS(lVisu_parsFName, BrHdr);
   if BrHdr.VISU_ExperimentNumber = 0 then
      BrHdr.VISU_ExperimentNumber := StrToIntDef(Extractfilename(ExtractFileDir(lAcqpFName)),123);
   if BrHdr.VISU_ProcessingNumber = 0 then
@@ -1188,14 +1229,14 @@ begin
   if not DirectoryExists(FName) then
     FName := ExtractFilePath(FName);
   if OutFName = '' then begin
-    if DirectoryExists(FName) then
-      OutFname := IncludeTrailingBackslash(FName)+'.nii'
+    if not DirectoryExists(FName) then
+      OutFName := ExtractFilePath(FName)
     else
-        OutFName := ExtractFilePath(FName)+'.nii';
+        OutFName := FName;
   end;
   Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);
   if nOK = 0 then
     showmsg('Unable to find any "2dseq" files in '+FName)
   else
-      showmsg('Converted '+inttostr(nOK)+' 2dseq in '+FName);
+      showmsg('Found '+inttostr(nOK)+' 2dseq in '+FName);
 end;
