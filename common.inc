@@ -1,3 +1,4 @@
+
 const
 kVers = 'Bruker2NIfTI v1.0.20170719 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
@@ -23,13 +24,15 @@ type
   TVecN = array of single;
   TMat = array[1..4, 1..4] of double;
   TBrukerHdr = Record
-    RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_FlipXY: boolean;
+    RECO_reco_exists, RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_visu_exists: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
     ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
     VISU_Slice_Order, VISU_ExperimentNumber, VISU_ProcessingNumber: integer;
-    RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset, ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
-    METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, ACQ_slice_sepn, ACQ_repetition_time : TVec;
-    ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId : string[79];
+    RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset,
+    ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
+    METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, VISU_orientation,
+    ACQ_slice_sepn, ACQ_repetition_time, VISU_CorePosition : TVec;
+    ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId, VISU_SubjectPosition : string[79];
     VISU_Scaling, VISU_Intercept: TVecN;
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
@@ -295,6 +298,7 @@ end;
 function BrClear : TBrukerHdr;
 //reset Bruker format header
 begin
+     result.RECO_reco_exists := false;
      result.RECO_transposition_varies := false;
      result.ACQ_protocol_name:='';
      result.RECO_byte_order_little := false;
@@ -321,11 +325,14 @@ begin
      result.ACQ_repetition_time := BrVecZero;
      result.ACQ_grad_matrix := BrVecZero;
      result.METHOD_PVM_SpatResol := BrVecZero;
+     result.VISU_orientation := BrVecZero;
+     result.VISU_CorePosition := BrVecZero;
      result.VISU_SeriesTypeId:= '';
+     result.VISU_SubjectPosition:= '';
      result.VISU_ExperimentNumber := 0;
      result.VISU_ProcessingNumber := 0;
      result.VISU_IsDerived := false;
-     result.VISU_FlipXY := false;
+     result.VISU_visu_exists := false;
      result.VISU_Slice_Order:= 1;
      setlength(result.VISU_Scaling,0);
      setlength(result.VISU_Intercept,0);
@@ -366,51 +373,6 @@ begin
      //   showmsg('WARNING: RECO_transposition varies: unable to convert to NIfTI (localizer scan?) '+lFName);
 end;
 
-procedure BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN);
-var
-   lStart,lEnd, n, i: integer;
-begin
-     setlength(lRA,0); //empty
-     if Eof(lFile) then exit;
-     lStart := AnsiPos('(', lStr)+1;
-     lEnd := AnsiPos(')', lStr);
-     n := strtoint(trim(Copy(lStr,lStart, lEnd-lStart)));
-     if n < 1 then exit;
-     setlength(lRA,n);
-     //profound
-     for i := 0 to (N-1) do
-         Read(lFile, lRA[i]);
-     readln(lFile);
-     //showmessage(inttostr(N));
-end;
-
-function BrGetArray(var lFile: TextFile;  lStr: string; var lRA: TVec): single;
-//read array from Bruker header
-var
-   lStart,lEnd, n: integer;
-begin
-     result := 0;
-     if Eof(lFile) then exit;
-     lStart := AnsiPos('(', lStr)+1;
-     lEnd := AnsiPos(')', lStr);
-     //s := trim(Copy(lStr,lStart, lEnd-lStart));
-     n := strtoint(trim(Copy(lStr,lStart, lEnd-lStart)));
-     if n < 1 then
-      exit
-     else if n = 1 then
-        ReadLn(lFile, lRA.v[1])
-     else if n = 2 then
-          ReadLn(lFile, lRA.v[1], lRA.v[2])
-     else if n = 3 then
-          ReadLn(lFile, lRA.v[1], lRA.v[2], lRA.v[3])
-     else if n < 9 then
-          ReadLn(lFile, lRA.v[1], lRA.v[2], lRA.v[3], lRA.v[4])
-     else begin   //ACQ_grad_matrix
-          ReadLn(lFile, lRA.v[1], lRA.v[2], lRA.v[3], lRA.v[4], lRA.v[5], lRA.v[6], lRA.v[7], lRA.v[8], lRA.v[9]);
-     end;
-     result := lRA.v[1];
-end;
-
 function TrimStr(lStr: string): string;
 //##$VisuExperimentNumber=2 -> "2"
 //##$VisuStation=( 65 ) -> "5"
@@ -427,6 +389,72 @@ begin
      j := length(result)+1;
   result := Copy(result, i+1,j-i-1);
   result := trim(result);
+end;
+
+function BrGetProd(s: string): integer;
+//'##$VisuCoreOrientation=( 5, 9 ) -> 45
+//##$VisuCorePosition=( 1, 3 ) -> 3
+//##$PVM_Nucleus1=( 8 ) -> 8
+//##$PVM_NAverages=23 -> 23
+var
+   i,j: integer;
+   t: string;
+begin
+     result := 0;
+     i := LastDelimiter('(',s);
+     if i < 1 then
+        i := LastDelimiter('=',s);
+     if i < 1 then
+        exit;
+     result := 1;
+     i := i + 1;
+     while i < length(s) do begin
+       j := PosEx(',',s,i);
+       if j < 1 then
+          j := PosEx(')',s,i);
+       if j < 1 then
+          j := length(s)+1;
+       result := result * strtointdef(trim(Copy(s, i,j-i)),1);
+       i := j + 1;
+     end;
+end;
+
+function BrGetArray(var lFile: TextFile;  lStr: string; var lRA: TVec): single;
+//read array from Bruker header
+var
+  i,n: integer;
+  f: single;
+begin
+     result := 0;
+     if Eof(lFile) then exit;
+     n := BrGetProd(lStr);
+     if n < 1 then
+      exit;
+     //if n > 9 then
+     // n := 9; //TVec has only 9 components - for more use BrGetArrayN
+     for i := 1 to n do begin
+       if i <= 9 then
+          Read(lFile, lRA.v[i])
+       else
+           Read(lFile, f);
+     end;
+     Readln(lFile);
+end;
+
+procedure BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN);
+var
+   n, i: integer;
+begin
+     setlength(lRA,0); //empty
+     if Eof(lFile) then exit;
+     n := BrGetProd(lStr);
+     if n < 1 then exit;
+     setlength(lRA,n);
+     //profound
+     for i := 0 to (N-1) do
+         Read(lFile, lRA[i]);
+     readln(lFile);
+     //showmessage(inttostr(N));
 end;
 
 function BrGetInt (var lStr: string): integer;
@@ -523,6 +551,7 @@ begin
   if (fname = '') or (not fileexists(fname)) then exit;
   assignfile(lFile,fname);
   reset(lFile);
+  BrHdr.VISU_visu_exists := true;
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
         //properties also in ACQP file
@@ -533,7 +562,7 @@ begin
         if AnsiPos('##$VisuCoreOrientation=', lStr) = 1 then begin
            BrHdr.ACQ_NI := BrGetInt(lStr);    //5 for ##$VisuCoreOrientation=( 5, 9 )
            BrHdr.ACQ_NSLICES := BrHdr.ACQ_NI; //not sure how multiple echo images look?
-           BrGetArray(lFile, '(9)', BrHdr.ACQ_grad_matrix);
+           BrGetArray(lFile, '(9)', BrHdr.VISU_orientation);
         end;
         if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then begin //= ACQ_slice_thick: slice thickness without gap
            BrHdr.ACQ_slice_thick := BrGetArray(lFile, lStr, unusedVec);
@@ -558,9 +587,10 @@ begin
            BrHdr.RECO_wordtype_bits := 32;
         //for some VISU files VisuCoreSize is XY in others it is YX
         // it is unclear when we should choose one or the other representation
-        // therefore, we will keep the RECO value if it is available, as it
+        // therefore, we will keep the RECO or METHOD (##$PVM_Matrix) if it is available, as it
         // does not exhibit this issue.
         if (AnsiPos('##$VisuCoreSize=', lStr) = 1) and (BrHdr.RECO_size.v[1] = 0) then begin
+        //if (AnsiPos('##$VisuCoreSize=', lStr) = 1) then begin
            BrGetArray(lFile, lStr, BrHdr.RECO_size);
            if (BrHdr.RECO_size.v[1] <> BrHdr.RECO_size.v[2]) then
               showmsg('Warning: number of rows/columns may be swapped (relying on visu_pars)');
@@ -575,6 +605,9 @@ begin
           BrHdr.VISU_ExperimentNumber := BrGetInt(lStr);
         if AnsiPos('##$VisuProcessingNumber=', lStr) = 1 then
            BrHdr.VISU_ProcessingNumber := BrGetInt(lStr);
+        if AnsiPos('##$VisuSubjectPosition=', lStr) = 1 then begin
+           BrHdr.VISU_SubjectPosition := trim(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
+        end;
         if AnsiPos('##$VisuSeriesTypeId', lStr) = 1 then begin
            BrHdr.VISU_SeriesTypeId :=  BrGetString(lFile);
            //SeriesTypeId begins with "ACQ_" (e.g. "ACQ_BRUKER_PVM") for raw data and "DERIVED_" (e.g. "DERIVED_ISA") for derived data
@@ -585,6 +618,9 @@ begin
           ReadLn(lFile, lStr);
           if (lstr = 'row_slice_dir') then BrHdr.VISU_FlipXY:=true;
         end;*)
+
+        if AnsiPos('##$VisuCorePosition', lStr) = 1 then
+           BrGetArray(lFile, lStr, BrHdr.VISU_CorePosition);  //VISU_CorePosition
         if AnsiPos('##$VisuCoreWordType=_32BIT_SGN_INT', lStr) = 1 then
            BrHdr.RECO_wordtype_bits := 32; //for derived images, VISU overwrites RECO
         if AnsiPos('##$VisuCoreWordType=_16BIT_SGN_INT', lStr) = 1 then
@@ -633,6 +669,9 @@ begin
         end;
         if AnsiPos('##$PVM_SpatReso', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.METHOD_PVM_SpatResol);
+        //
+        if (AnsiPos('##$PVM_Matrix=', lStr) = 1) then
+           BrGetArray(lFile, lStr, BrHdr.RECO_size);
   end;
   result := true;
   closefile(lFile);
@@ -702,6 +741,7 @@ begin
   reset(lFile);
   BrHdr.RECO_wordtype_bits := 32; //default
   BrHdr.RECO_byte_order_little:= false; //default
+  BrHdr.RECO_reco_exists := true;
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
         if AnsiPos('##$', lStr) <> 1 then continue;
@@ -742,6 +782,8 @@ begin
      showmsg('ACQ_method : ' + BrHdr.ACQ_method);
      if (BrHdr.VISU_SeriesTypeId <> '') then
         showmsg('VISU_SeriesTypeId : ' + BrHdr.VISU_SeriesTypeId);
+     if (BrHdr.VISU_SubjectPosition <> '') then
+        showmsg('VISU_SubjectPosition : ' + BrHdr.VISU_SubjectPosition );
      if BrHdr.VISU_isDerived then
         showmsg('VISU derived data : true');
      if BrHdr.RECO_byte_order_little then
@@ -794,6 +836,52 @@ begin
     +f2str(mt[3,1])+' '+f2str(mt[3,2])+' '+f2str(mt[3,3])+' '+f2str(mt[3,4])+'; 0, 0, 0, 1] ');
 end;
 
+
+procedure BrMat_VISU (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolean);
+var
+    m: mat44;
+    vc_orientation: mat33;
+    dumdx, dumdy, dumdz: single;
+    vc_position, resolution: vect3;
+    vc_subject_position: string;
+    frame_body_as_frame_head,keep_same_det,consider_subject_position: boolean;
+begin
+    vc_orientation := toMatrix (BrHdr.VISU_orientation.v[1],BrHdr.VISU_orientation.v[2],BrHdr.VISU_orientation.v[3],
+                   BrHdr.VISU_orientation.v[4],BrHdr.VISU_orientation.v[5],BrHdr.VISU_orientation.v[6],
+                   BrHdr.VISU_orientation.v[7],BrHdr.VISU_orientation.v[8],BrHdr.VISU_orientation.v[9]);
+    vc_position := Vector3(BrHdr.VISU_CorePosition.v[1], BrHdr.VISU_CorePosition.v[2], BrHdr.VISU_CorePosition.v[3]);
+    if lFOVx10 then begin
+      NiHdr.pixdim[1] := NiHdr.pixdim[1] * 10;
+      NiHdr.pixdim[2] := NiHdr.pixdim[2] * 10;
+      NiHdr.pixdim[3] := NiHdr.pixdim[3] * 10;
+    end;
+    resolution := Vector3(NiHdr.pixdim[1], NiHdr.pixdim[2], NiHdr.pixdim[3]);
+    vc_subject_position := BrHdr.VISU_SubjectPosition;
+    frame_body_as_frame_head :=False;
+    keep_same_det := True;
+    consider_subject_position :=False;
+    m := compute_affine_from_visu_pars(vc_orientation, vc_position, vc_subject_position, resolution,
+      frame_body_as_frame_head, keep_same_det,consider_subject_position);
+
+    NiHdr.sform_code:= kNIFTI_XFORM_SCANNER_ANAT;
+    NiHdr.srow_x[0] := m[0,0]; NiHdr.srow_x[1] := m[0,1]; NiHdr.srow_x[2] := m[0,2]; NiHdr.srow_x[3] := m[0,3];
+    NiHdr.srow_y[0] := m[1,0]; NiHdr.srow_y[1] := m[1,1]; NiHdr.srow_y[2] := m[1,2]; NiHdr.srow_y[3] := m[1,3];
+    NiHdr.srow_z[0] := m[2,0]; NiHdr.srow_z[1] := m[2,1]; NiHdr.srow_z[2] := m[2,2]; NiHdr.srow_z[3] := m[2,3];
+    NiHdr.qform_code:= kNIFTI_XFORM_SCANNER_ANAT;
+    nifti_mat44_to_quatern(m, NiHdr.quatern_b, NiHdr.quatern_c, NiHdr.quatern_d,
+                              NiHdr.qoffset_x, NiHdr.qoffset_y, NiHdr.qoffset_z,
+                              dumdx, dumdy, dumdz,NiHdr.pixdim[0]) ;
+    if not lverbose then exit;
+    showmsg(Mat2Str('vc_orientation',vc_orientation));
+    showmsg(Vec2Str('vc_position',vc_position));
+    showmsg(Vec2Str('resolution',resolution));
+    showmsg('vc_subject_position = '+vc_subject_position);
+    showmsg(Bool2Str('frame_body_as_frame_head',frame_body_as_frame_head));
+    showmsg(Bool2Str('keep_same_det',keep_same_det));
+    showmsg(Bool2Str('consider_subject_position',consider_subject_position));
+    showmsg(Mat2Str('result',m));
+end;
+
 procedure BrMat (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolean);
 //Generate NIfTI spatial transformation matrix from Bruker Header
 var
@@ -828,6 +916,7 @@ begin
   ft2mm[1,4] := (NiHdr.dim[1]+1)/2 * -NiHdr.pixdim[1];
   ft2mm[2,4] := (NiHdr.dim[2]+1)/2 * -NiHdr.pixdim[2];
   ft2mm[3,4] := (NiHdr.dim[3]+1)/2 * -NiHdr.pixdim[3];
+
   //translations
   Translations := MtEye;
   Translations[1,4] := BrHdr.ACQ_read_offset; //Read
@@ -1146,10 +1235,11 @@ end;
 procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean);
 //convert Bruker file to NIfTI
 var
-    lImgDir, lOutDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
+    lImgDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
+    ForceSFormFromReco: boolean = true;//if false : experimental support for matrices from visu file
 begin
   BrHdr := BrClear;
   lBaseDir := extractfilepath(lDirStr);
@@ -1196,7 +1286,11 @@ begin
         exit;
   end;
   BrReport(BrHdr, lRecoFName, lOutFName, lVerbose);
-  BrMat (BrHdr, NiHdr, lFOVx10, lVerbose);
+  if (not BrHdr.VISU_visu_exists) or ((BrHdr.RECO_reco_exists) and (ForceSFormFromReco)) then
+      BrMat (BrHdr, NiHdr, lFOVx10, (lVerbose) and (not BrHdr.VISU_visu_exists))
+  else
+      BrMat_VISU (BrHdr, NiHdr, lFOVx10, lVerbose) ;
+
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
   setlength(BrHdr.VISU_Scaling,0); //free memory
   setlength(BrHdr.VISU_Intercept,0); //free memory

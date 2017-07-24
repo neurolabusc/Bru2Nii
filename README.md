@@ -68,7 +68,7 @@ Being inspired by a Perl script we maintain the same license (http://dev.perl.or
 
 ##### Links
 
- * [bruker2nifti_qa](https://github.com/naveau/bruker2nifti_qa) provides sample Bruker datasets to validate conversion.
+ * [bruker2nifti_qa](https://gitlab.com/naveau/bruker2nifti_qa/tree/master) provides sample Bruker datasets to validate conversion.
  * [bruker2nifti](https://github.com/SebastianoF/bruker2nifti) is a scriptable Python tool for conversion.
  * [pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv).
  * [Bruker2Analyze](http://www.mccauslandcenter.sc.edu/mricro/mricro/bru2anz/) is another Bruker to Analyze conversion tool.

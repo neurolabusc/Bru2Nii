@@ -8,7 +8,7 @@ uses
  {$ifndef fpc} ShellAPI,messages, strutils, {$endif}
   SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
   StdCtrls, ExtCtrls,  Process, strutils,
-  Classes;
+  Classes, mat;
 type
   { TForm1 }
   TForm1 = class(TForm)

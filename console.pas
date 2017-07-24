@@ -5,7 +5,7 @@ interface
 implementation
 
 uses
- strutils,Classes,SysUtils;
+ strutils,Classes,SysUtils, mat;
 
 procedure Showmsg(lStr: string);
 begin
