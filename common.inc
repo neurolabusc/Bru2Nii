@@ -441,6 +441,7 @@ begin
            Read(lFile, f);
      end;
      Readln(lFile);
+     result := lRA.v[1];
 end;
 
 procedure BrGetArrayN(var lFile: TextFile;  lStr: string; var lRA: TVecN);
@@ -550,11 +551,8 @@ begin
            BrHdr.ACQ_NSLICES := BrHdr.ACQ_NI; //not sure how multiple echo images look?
            BrGetArray(lFile, '(9)', BrHdr.VISU_orientation);
         end;
-        if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then begin //= ACQ_slice_thick: slice thickness without gap
-           BrHdr.ACQ_slice_thick := BrGetArray(lFile, lStr, unusedVec);
-           //BrHdr.METHOD_slice_distance := BrHdr.ACQ_slice_sepn.v[1];
-           //BrHdr.ACQ_slice_thick := BrHdr.METHOD_slice_distance;
-        end;
+        if AnsiPos('##$VisuCoreFrameThickness=', lStr) = 1 then //= ACQ_slice_thick: slice thickness without gap
+           BrHdr.ACQ_slice_thick := BrGetArray(lFile, lStr, unusedVec); //See Matthew Brett's Banana example (1.5mm slice + 0.5mm gap = 2mm)
         //TO DO : multiple echoes, slice gap
         (*if AnsiPos('##$VisuCoreSlicePacksSliceDist', lStr) = 1 then begin  //T2 rare lists as 0mm?
            BrHdr.METHOD_slice_distance := BrGetArray(lFile, '(1)',unusedVec );
@@ -991,6 +989,12 @@ begin
         end else
             NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
   end;
+  (*if (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.METHOD_slice_distance) or
+    (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_sepn.v[1]) or
+    (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_thick) then begin
+      showmessage(format('%s %g %g %g %g!',[FName,BrHdr.METHOD_PVM_SpatResol.v[3],BrHdr.METHOD_slice_distance,
+        BrHdr.ACQ_slice_sepn.v[1], BrHdr.ACQ_slice_thick ]));
+    end;*)
   if BrHdr.METHOD_PVM_SpatResol.v[3] > 0 then //4/2016: Suggested and validated by Chern-Chyi Yen
     NiHdr.pixdim[3] := BrHdr.METHOD_PVM_SpatResol.v[3] //for 3D sequences, e.g. 3D FLASH
   else if BrHdr.METHOD_slice_distance > 0 then
