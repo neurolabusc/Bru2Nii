@@ -31,8 +31,8 @@ type
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset,
     ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
     METHOD_PVM_SpatResol,RECO_offset, RECO_size, RECO_fov, ACQ_grad_matrix, VISU_orientation,
-    ACQ_slice_sepn, ACQ_repetition_time, VISU_CorePosition : TVec;
-    ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId, VISU_SubjectPosition : string[79];
+    ACQ_slice_sepn, ACQ_repetition_time, VISU_CorePosition, VISU_FGOrder : TVec;
+    METHOD_SPackArrSliceOrient, ACQ_protocol_name, ACQ_method, VISU_SeriesTypeId, VISU_SubjectPosition : string[79];
     VISU_Scaling, VISU_Intercept: TVecN;
   end;
   TNiHdr= packed record //Next: analyze Format Header structure
@@ -327,6 +327,8 @@ begin
      result.METHOD_PVM_SpatResol := BrVecZero;
      result.VISU_orientation := BrVecZero;
      result.VISU_CorePosition := BrVecZero;
+     result.VISU_FGOrder := BrVecZero;
+     result.METHOD_SPackArrSliceOrient := '';
      result.VISU_SeriesTypeId:= '';
      result.VISU_SubjectPosition:= '';
      result.VISU_ExperimentNumber := 0;
@@ -489,16 +491,30 @@ begin
          result  := StringReplace(result, c, '_',  [rfReplaceAll, rfIgnoreCase])
 end;
 
-function Slice_Order(lOrderStr: string): integer;
+function Slice_Order(lOrderStr: string; var lRA: TVec): integer;
 //is "FG_SLICE" 1st (default), 2nd or Nth item:
-//(22, <FG_DTI>, <DTI>, 0, 3) (64, <FG_SLICE>, <>, 3, 2)
-//(6, <FG_MOVIE>, <diffusion>, 0, 1)
-//(5, <FG_SLICE>, <>, 0, 2) (9, <FG_DIFFUSION>, <diffusion>, 2, 2) (3,<FG_CYCLE>, <repetitions>, 4, 1)
+//(22, <FG_DTI>, <DTI>, 0, 3) (64, <FG_SLICE>, <>, 3, 2)  -> 2 [22, 64]
+//(6, <FG_MOVIE>, <diffusion>, 0, 1)  -> 1 [6]
+//(5, <FG_SLICE>, <>, 0, 2) (9, <FG_DIFFUSION>, <diffusion>, 2, 2) (3,<FG_CYCLE>, <repetitions>, 4, 1) // -> 1 [5,9,3]
+//(2, <FG_ECHO>, <>, 0, 1) (9, <FG_SLICE>, <>, 1, 2) (2, <FG_CYCLE>, <>, 3, 0) // -> 2 [2,9,2]
 const
   kDelimiter = ')';
 var
-  offset: integer;
+  n,i,j,offset: integer;
 begin
+  //read array: first number after '('
+     i := Pos('(',lOrderStr);
+     n := 0;
+     while (i > 0)  do begin
+       j := PosEx(',',lOrderStr,i);
+       if (j > 0) and (n < 10) then begin
+          inc(n);
+          //showmessage(trim(Copy(lOrderStr, i+1,j-i-1)));
+          lRA.v[n] := strtointdef(trim(Copy(lOrderStr, i+1,j-i-1)),1);
+       end;
+       i := PosEx('(',lOrderStr,j);
+     end;
+     //read position of FG_SLICE
      result := 1;
      offset := AnsiPos('<FG_SLICE>', lOrderStr);
      if offset < 2 then exit; //slice not reported, e.g. "(6, <FG_MOVIE>, <diffusion>, 0, 1)"
@@ -509,36 +525,6 @@ begin
            offset := PosEx(kDelimiter, lOrderStr, offset + length(kDelimiter));
      end;
 end;
-
-(*function LastInt(s: string): integer;
-//'##$VisuCoreOrientation=( 5, 9 ) ' returns 9
-var
-   i,j: integer;
-begin
-     i := LastDelimiter(',',s);
-     if i < 1 then
-        i := LastDelimiter('(',s);
-     j := LastDelimiter(')',s);
-     if (i < 1) or (j < i) then exit;
-     s := Copy(s, i+1,j-i-1);
-     s := trim(s);
-     result := strtointdef(s,0);
-end;*)
-
-(*function FirstInt(s: string): integer;
-//'##$VisuCoreOrientation=( 5, 9 ) ' returns 5
-var
-   i,j: integer;
-begin
-     i := LastDelimiter('(',s);
-     j := LastDelimiter(',',s);
-     if j < 1 then
-        j := LastDelimiter(')',s);
-     if (i < 1) or (j < i) then exit;
-     s := Copy(s, i+1,j-i-1);
-     s := trim(s);
-     result := strtointdef(s,0);
-end; *)
 
 function BrReadVISU_PARS (fname: string; var BrHdr: TBrukerHdr): boolean;
 //read Bruker format visu_pars file
@@ -627,7 +613,7 @@ begin
            BrHdr.RECO_wordtype_bits := 16; //for derived images, VISU overwrites RECO
         if AnsiPos('##$VisuFGOrderDesc=', lStr) = 1 then begin
           ReadLn(lFile, lStr);
-          BrHdr.VISU_Slice_Order := Slice_Order(lStr);
+          BrHdr.VISU_Slice_Order := Slice_Order(lStr,BrHdr.VISU_FGOrder);
         end;
         if AnsiPos('##$VisuCoreDataSlope=', lStr) = 1 then //##$VisuCoreDataSlope=( 330 ) 1e-06 1e-09 1.34593219873039e-07 ....
 	   BrGetArrayN(lFile, lStr, BrHdr.VISU_Scaling);
@@ -657,6 +643,8 @@ begin
   reset(lFile);
   while not Eof(lFile) do begin
         ReadLn(lFile, lStr);
+        if AnsiPos('##$PVM_SPackArrSliceOrient=', lStr) = 1 then
+           BrHdr.METHOD_SPackArrSliceOrient :=  BrGetString(lFile);
         if AnsiPos('##$PVM_SPackArrSliceOffset', lStr) = 1 then
            BrHdr.METHOD_slice_offset := BrGetArray(lFile, '(1)',lUnused );
         if AnsiPos('##$PVM_SPackArrSliceDistance', lStr) = 1 then
@@ -941,22 +929,21 @@ begin
   end else
       perl2nii :=  MtSet(-1,0,0,0, 0,0,1,0, 0,1,0,0);
   so_far := MtMult(perl2nii,so_far);
-  if lVerbose then begin //display transformation values
-    MtReport('start',Tranposition);
-    MtReport('recoff',recoff);
-    MtReport('ft2mm',ft2mm);
-    MtReport('swaps',swapxy);
-    MtReport('trans',Translations);
-    MtReport('rotn',rotn);
-    MtReport('perl2nii',perl2nii);
-    showmsg('vx2mm =  rotn * trans * swaps * ft2mm * recoff * start');
-    showmsg('nii =  perl2nii * rotn * trans * swaps * ft2mm * recoff * start');
-    MtReport('NIfTI',so_far);
-  end;
   NiHdr.sform_code:= kNIFTI_XFORM_SCANNER_ANAT;
   NiHdr.srow_x[0] := so_far[1,1]; NiHdr.srow_x[1] := so_far[1,2]; NiHdr.srow_x[2] := so_far[1,3]; NiHdr.srow_x[3] := so_far[1,4];
   NiHdr.srow_y[0] := so_far[2,1]; NiHdr.srow_y[1] := so_far[2,2]; NiHdr.srow_y[2] := so_far[2,3]; NiHdr.srow_y[3] := so_far[2,4];
   NiHdr.srow_z[0] := so_far[3,1]; NiHdr.srow_z[1] := so_far[3,2]; NiHdr.srow_z[2] := so_far[3,3]; NiHdr.srow_z[3] := so_far[3,4];
+  if not lVerbose then exit; //display transformation values
+  MtReport('start',Tranposition);
+  MtReport('recoff',recoff);
+  MtReport('ft2mm',ft2mm);
+  MtReport('swaps',swapxy);
+  MtReport('trans',Translations);
+  MtReport('rotn',rotn);
+  MtReport('perl2nii',perl2nii);
+  showmsg('vx2mm =  rotn * trans * swaps * ft2mm * recoff * start');
+  showmsg('nii =  perl2nii * rotn * trans * swaps * ft2mm * recoff * start');
+  MtReport('NIfTI',so_far);
 end;
 
 function BrHdr2NII (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; ImgBytes: integer; var FName: string): boolean;
@@ -1101,30 +1088,54 @@ begin
          wp^[i] := swap(wp^[i]);
 end;
 
-procedure SwapDimsZT(p: Pointer; ImgBytes: integer; lNiHdr: TNiHdr);
+procedure SwapDimsZT(p: Pointer; ImgBytes: integer; lNiHdr: TNiHdr; var BrHdr: TBrukerHdr);
 //swizzle 3rd and 4th dimensions
 type
     ByteRA0 = array [0..0] of byte;
     Bytep0 = ^ByteRA0;
 var
-    xyBytes, xyzBytes, z, t, posIn, posOut: integer;
+    post, pre, xyBytes, xyzBytes, z, t, posIn, posOut, nDim, nDimNotZ, nSlices,nSlicesIn, nSlicesPreZ: integer;
     pIn, pOut: Bytep0;
 begin
+     //NIfTI requires time is faster changing element
+     if BrHdr.VISU_Slice_Order < 2 then exit;
      xyBytes := lNiHdr.dim[1]*lNiHdr.dim[2]*(lNiHdr.bitpix div 8);
-     if (lNiHdr.dim[3] < 2) or (lNiHdr.dim[4] < 2) or ((xyBytes*lNiHdr.dim[3]*lNiHdr.dim[4]) <> ImgBytes) then exit;
-     showmsg(' Swapping dimensions XYTZ -> XYZT');
+     nSlicesIn := lNiHdr.dim[3]*lNiHdr.dim[4];
+     if (lNiHdr.dim[3] < 2) or ((xyBytes*nSlicesIn) <> ImgBytes) then exit;
+     nDim := 0;
+     nDimNotZ := 0;
+     nSlices := 1;
+     while (nDim < 7) and (BrHdr.VISU_FGOrder.v[nDim+1] > 0) do begin
+           inc(nDim);
+           if nDim = BrHdr.VISU_Slice_Order then
+               lNiHdr.dim[3] := round(BrHdr.VISU_FGOrder.v[nDim])
+           else begin
+              nDimNotZ := nDimNotZ + 1;
+              lNiHdr.dim[3+nDimNotZ] := round(BrHdr.VISU_FGOrder.v[nDim]) ;
+           end;
+           nSlices := nSlices * round(BrHdr.VISU_FGOrder.v[nDim]);
+           if nDim < BrHdr.VISU_Slice_Order then
+              nSlicesPreZ := nSlices;
+     end;
+     if (nSlices <>  nSlicesIn) or (nDim < 2) then begin
+        showmsg('Catastrophic error decoding header');
+        exit;
+     end;
+     lNiHdr.dim[0] := nDim + 2;
+     showmsg(format(' Swapping dimensions e.g. XYTZ -> XYZT output dim %dx%dx%dx%dx%dx%d ',[lNiHdr.dim[1], lNiHdr.dim[2], lNiHdr.dim[3],
+                      lNiHdr.dim[4],lNiHdr.dim[5],lNiHdr.dim[6]]));
      xyzBytes := xyBytes * lNiHdr.dim[3];
      getmem(pIn, ImgBytes);
      Move(p^,pIn^,ImgBytes);//src, dest, bytes
      pOut := Bytep0(p);
      posIn := 0;
-     for z := 1 to lNiHdr.dim[3] do begin
-       for t := 1 to lNiHdr.dim[4] do begin
-           posOut := ((t-1)*xyzBytes) + ((z-1) * xyBytes);
+     for post := 1 to (nSlices div (lNiHdr.dim[3] * nSlicesPreZ)) do
+       for z := 1 to lNiHdr.dim[3] do
+         for pre := 1 to nSlicesPreZ do begin
+           posOut := ((post-1)*xyzBytes*nSlicesPreZ) + ((pre-1)*xyzBytes) + ((z-1) * xyBytes);
            Move(pIn^[posIn],pOut^[posOut], xyBytes);//src, dest, bytes
            inc(posIn, xyBytes);
-       end;
-     end;
+         end;
      freemem(pIn);
 end;
 
@@ -1218,7 +1229,7 @@ begin
   end;  //swap image data to have native endian
   Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
-    SwapDimsZT(p, ImgBytes, lNiHdr);
+    SwapDimsZT(p, ImgBytes, lNiHdr, BrHdr);
   AssignFile(lOutF, lNiiFName);
   Rewrite(lOutF,1);
   BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
@@ -1281,7 +1292,7 @@ begin
   lOutFName := UniqueFilename(lOutFName);
   if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
   if (BrHdr.RECO_transposition_varies)  then begin
-     showmsg('WARNING: slices have different orientations (can not create a NIfTI volume, probably a localizer scan): '+ lImgFName);
+     showmsg('WARNING: RECO_transposition varies, slices have different orientations (can not create a NIfTI volume, probably a localizer scan): '+ lImgFName);
      if OnlyConvert3D then
         exit;
   end;
@@ -1290,7 +1301,6 @@ begin
       BrMat (BrHdr, NiHdr, lFOVx10, (lVerbose) and (not BrHdr.VISU_visu_exists))
   else
       BrMat_VISU (BrHdr, NiHdr, lFOVx10, lVerbose) ;
-
   CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
   setlength(BrHdr.VISU_Scaling,0); //free memory
   setlength(BrHdr.VISU_Intercept,0); //free memory
