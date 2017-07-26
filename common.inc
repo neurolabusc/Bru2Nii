@@ -618,11 +618,12 @@ begin
 	if AnsiPos('##$VisuCoreDataOffs=', lStr) = 1 then //
 	   BrGetArrayN(lFile, lStr, BrHdr.VISU_Intercept);
   end;
-  //we can derive mm resolution from FOV and voxel resolution
+  (*//we can derive mm resolution from FOV and voxel resolution
+  but better to get from METHOD file
   if (BrHdr.RECO_size.v[1] > 0) then
      BrHdr.METHOD_PVM_SpatResol.v[1] := BrHdr.RECO_fov.v[1]/BrHdr.RECO_size.v[1];
   if (BrHdr.RECO_size.v[2] > 0) then
-     BrHdr.METHOD_PVM_SpatResol.v[2] := BrHdr.RECO_fov.v[1]/BrHdr.RECO_size.v[2];
+     BrHdr.METHOD_PVM_SpatResol.v[2] := BrHdr.RECO_fov.v[1]/BrHdr.RECO_size.v[2]; *)
   closefile(lFile);
   result := true;
   //result := false;
@@ -655,7 +656,6 @@ begin
         end;
         if AnsiPos('##$PVM_SpatReso', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.METHOD_PVM_SpatResol);
-        //
         if (AnsiPos('##$PVM_Matrix=', lStr) = 1) then
            BrGetArray(lFile, lStr, BrHdr.RECO_size);
   end;
@@ -873,6 +873,7 @@ procedure BrMat (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolea
 var
   rotn, Tranposition,Translations, swapxy, ft2mm, recoff, perl2nii, so_far: TMat;
 begin
+  //showmsg('>>>>>>> '+BrHdr.VISU_SubjectPosition);
   Tranposition := MtEye;
      if (BrHdr.RECO_transposition = 1) then begin
       SwapDims(NiHdr.dim[1],NiHdr.dim[2], NiHdr.pixdim[1],NiHdr.pixdim[2]);
@@ -982,33 +983,40 @@ begin
 
   if (NiHdr.dim[3] < 1) then NiHdr.dim[3]  := 1;
   if (NiHdr.dim[4] < 1) then NiHdr.dim[4]  := 1;
-  for i := 1 to 2 do begin
-        if BrHdr.RECO_size.v[i] = 0 then begin
-          NiHdr.pixdim[i] := 1;
-          showmsg('Warning: FOV does not describe all dimensions (localizer scan?) '+FName);
-        end else
-            NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
-  end;
-  (*if (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.METHOD_slice_distance) or
-    (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_sepn.v[1]) or
-    (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_thick) then begin
-      showmessage(format('%s %g %g %g %g!',[FName,BrHdr.METHOD_PVM_SpatResol.v[3],BrHdr.METHOD_slice_distance,
-        BrHdr.ACQ_slice_sepn.v[1], BrHdr.ACQ_slice_thick ]));
-    end;*)
-  if BrHdr.METHOD_PVM_SpatResol.v[3] > 0 then //4/2016: Suggested and validated by Chern-Chyi Yen
-    NiHdr.pixdim[3] := BrHdr.METHOD_PVM_SpatResol.v[3] //for 3D sequences, e.g. 3D FLASH
-  else if BrHdr.METHOD_slice_distance > 0 then
-    NiHdr.pixdim[3] := BrHdr.METHOD_slice_distance //best source for distance between slices : includes gap
-  else if BrHdr.RECO_size.v[3]> 0 then
-    NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] //distance between slices, x10 FOV is CM not MM
-  else if BrHdr.ACQ_slice_sepn.v[1] > 0 then
-    NiHdr.pixdim[3] := BrHdr.ACQ_slice_sepn.v[1]
-  else if BrHdr.ACQ_slice_thick > 0 then begin
-       showmsg('Warning: unable to determine distance between slices, using slice thickness (incorrect if gap between slices)');
-       NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
-  end else begin
-      showmsg('Error: Unable to determine distance between slices');
-      NiHdr.pixdim[3] := 1;
+  if (BrHdr.METHOD_PVM_SpatResol.v[1] > 0) and (BrHdr.METHOD_PVM_SpatResol.v[2] > 0) and (BrHdr.METHOD_PVM_SpatResol.v[3] > 0) then begin
+    //use METHOD for resolution - seems most accurate
+    for i := 1 to 3 do
+       NiHdr.pixdim[i] := BrHdr.METHOD_PVM_SpatResol.v[i];
+
+  end else begin //no METHOD_PVM_SpatResol - use more speculative methods to detect resolution
+    for i := 1 to 2 do begin
+          if BrHdr.RECO_size.v[i] = 0 then begin
+            NiHdr.pixdim[i] := 1;
+            showmsg('Warning: FOV does not describe all dimensions (localizer scan?) '+FName);
+          end else
+              NiHdr.pixdim[i] := (10*BrHdr.RECO_fov.v[i])/BrHdr.RECO_size.v[i] ;   //x10 FOV is CM not MM
+    end;
+    (*if (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.METHOD_slice_distance) or
+      (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_sepn.v[1]) or
+      (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_thick) then begin
+        showmessage(format('%s %g %g %g %g!',[FName,BrHdr.METHOD_PVM_SpatResol.v[3],BrHdr.METHOD_slice_distance,
+          BrHdr.ACQ_slice_sepn.v[1], BrHdr.ACQ_slice_thick ]));
+      end;*)
+    if BrHdr.METHOD_PVM_SpatResol.v[3] > 0 then //4/2016: Suggested and validated by Chern-Chyi Yen
+      NiHdr.pixdim[3] := BrHdr.METHOD_PVM_SpatResol.v[3] //for 3D sequences, e.g. 3D FLASH
+    else if BrHdr.METHOD_slice_distance > 0 then
+      NiHdr.pixdim[3] := BrHdr.METHOD_slice_distance //best source for distance between slices : includes gap
+    else if BrHdr.RECO_size.v[3]> 0 then
+      NiHdr.pixdim[3] := (10*BrHdr.RECO_fov.v[3])/BrHdr.RECO_size.v[3] //distance between slices, x10 FOV is CM not MM
+    else if BrHdr.ACQ_slice_sepn.v[1] > 0 then
+      NiHdr.pixdim[3] := BrHdr.ACQ_slice_sepn.v[1]
+    else if BrHdr.ACQ_slice_thick > 0 then begin
+         showmsg('Warning: unable to determine distance between slices, using slice thickness (incorrect if gap between slices)');
+         NiHdr.pixdim[3] := BrHdr.ACQ_slice_thick; //BrHdr.ACQ_slice_sepn.v[1]; //distance between slices
+    end else begin
+        showmsg('Error: Unable to determine distance between slices');
+        NiHdr.pixdim[3] := 1;
+    end;
   end;
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NSLICES > 0) and (BrHdr.ACQ_NR <= 1) and ((BrHdr.ACQ_NI mod BrHdr.ACQ_NSLICES) = 0) then
