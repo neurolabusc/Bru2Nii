@@ -5,7 +5,7 @@ interface
 implementation
 
 uses
- strutils,Classes,SysUtils, mat;
+ strutils,Classes,SysUtils, mat, ZStream;
 
 procedure Showmsg(lStr: string);
 begin
@@ -29,6 +29,7 @@ begin
   writeln(' -o output filename');
   writeln(' -p append protocol name to output filename');
   writeln(' -s append series type ID to output filename');
+  writeln(' -g produce gzip file (".nii.gz")');
   writeln(' -v verbose conversion comments');
   writeln('Examples:');
 {$IFDEF UNIX}
@@ -48,12 +49,13 @@ procedure ProcessParamStr;
 var
   inFname, outFname, cmd: string;
   i: integer;
-  FOVx10, verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean;
+  FOVx10, verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, CompressFile: boolean;
 begin
     FOVx10 := true;
     Verbose := false;
     AppendProtocolName := false;
     AppendSeriesTypeID := false;
+    CompressFile := false;
     OnlyConvert3D := true;
     outFname := '';
     i := 1;
@@ -71,6 +73,8 @@ begin
                AppendProtocolName := true
             else if AnsiPos('-s', cmd) = 1 then
                  AppendSeriesTypeID := true
+            else if AnsiPos('-g', cmd) = 1 then
+                 CompressFile := true
             else if (AnsiPos('-o', cmd) = 1) and (i <= (ParamCount-1)) then begin
                outFname := ParamStr(i);
                i := i + 1;
@@ -81,7 +85,7 @@ begin
           end else
               inFname := cmd;
     end;
-    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
+    BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, CompressFile);
 end;
 
 begin
