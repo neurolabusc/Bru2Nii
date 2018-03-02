@@ -1219,12 +1219,14 @@ begin
 end;
 
 
-procedure CpyImg (lRawFName, lNiiFName: string; var ImgBytes: integer; var BrHdr: TBrukerHdr; var lNiHdr: TNiHdr);
+procedure CpyImg (lRawFName, lNiiFName: string; var ImgBytes: integer; var BrHdr: TBrukerHdr; var lNiHdr: TNiHdr; gz: boolean);
 //copy image data from Bruker 2dseq file to NIfTI .nii file: forces native byte order
 var
   lOutF,lInF: File of byte;
+  lOutGZF: TGZFileStream;
   p: Pointer;
 begin
+  showmsg('lNiiFName:' + lNiiFName);
   getmem(p, ImgBytes);
   FileMode := 0; //Set file access to read only
   AssignFile(lInF, lRawFName);
@@ -1245,11 +1247,21 @@ begin
   Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr, BrHdr);
-  AssignFile(lOutF, lNiiFName);
-  Rewrite(lOutF,1);
-  BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
-  BlockWrite(lOutF, p^, ImgBytes);
-  CloseFile(lOutF);
+  if gz then
+    begin
+    lOutGZF := TGZFileStream.Create(lNiiFName,gzOpenWrite);
+    lOutGZF.write(lNiHdr, sizeof(TNiHdr));
+    lOutGZF.write(p^, ImgBytes);
+    lOutGZF.destroy;
+    end
+  else
+    begin
+    AssignFile(lOutF, lNiiFName);
+    Rewrite(lOutF,1);
+    BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
+    BlockWrite(lOutF, p^, ImgBytes);
+    CloseFile(lOutF);
+    end;
   freemem(p, ImgBytes);
 end;
 
@@ -1258,7 +1270,7 @@ begin
     result := extractfilepath(FName)+AppendStr+extractfilename(FName);
 end;
 
-procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean);
+procedure BrConvert (lDirStr,lOutFName: string; lFOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeId: boolean; CompressFile: Boolean);
 //convert Bruker file to NIfTI
 var
     lImgDir, lBaseDir, lRecoFName, lMethodFName, lImgFName, lAcqpFName, lAcqpDir, lVisu_parsFName: string;
@@ -1303,7 +1315,10 @@ begin
     if (AppendSeriesTypeId)  then
        lOutFName := AppendFName(lOutFName, BrHdr.VISU_SeriesTypeId);
   end;
-  lOutFName := changefileext(lOutFName,'.nii');
+  if CompressFile then 
+    lOutFName := changefileext(lOutFName,'.nii.gz')
+  else
+    lOutFName := changefileext(lOutFName,'.nii');
   lOutFName := UniqueFilename(lOutFName);
   if not BrHdr2NII(BrHdr, NiHdr, ImgBytes, lRecoFName) then exit;
   if (BrHdr.RECO_transposition_varies)  then begin
@@ -1316,12 +1331,12 @@ begin
       BrMat (BrHdr, NiHdr, lFOVx10, (lVerbose) and (not BrHdr.VISU_visu_exists))
   else
       BrMat_VISU (BrHdr, NiHdr, lFOVx10, lVerbose) ;
-  CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr);
+  CpyImg (lImgFName, lOutFName, ImgBytes, BrHdr, NiHdr, CompressFile);
   setlength(BrHdr.VISU_Scaling,0); //free memory
   setlength(BrHdr.VISU_Intercept,0); //free memory
 end;
 
-procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; var nOK: integer);
+procedure Find2Dseq(Dir, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; var nOK: integer; CompressFile: boolean);
 //Find and convert any "2dseq" file in Dir and enclosed sub-directories
 var
   SR: TSearchRec;
@@ -1330,17 +1345,17 @@ begin
     try
       repeat
         if ((SR.Attr and faDirectory) = 0) and (SR.Name = '2dseq') then begin
-          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID);
+          BrConvert(IncludeTrailingBackslash(Dir)+SR.Name,OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, CompressFile);
           inc(nOK);
         end else if (SR.Name <> '.') and (SR.Name <> '..') then
-          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);  // recursive call!
+          Find2Dseq(IncludeTrailingBackslash(Dir) + SR.Name, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK, CompressFile);  // recursive call!
       until FindNext(Sr) <> 0;
     finally
       FindClose(SR);
     end;
 end;
 
-procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean);
+procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; CompressFile: boolean);
 var
   nOK: integer = 0;
 begin
@@ -1353,7 +1368,7 @@ begin
     else
         OutFName := FName;
   end;
-  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK);
+  Find2Dseq(Fname, OutFName, FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, nOK, CompressFile);
   if nOK = 0 then
     showmsg('Unable to find any "2dseq" files in '+FName)
   else
