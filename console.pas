@@ -29,7 +29,7 @@ begin
   writeln(' -o output filename');
   writeln(' -p append protocol name to output filename');
   writeln(' -s append series type ID to output filename');
-  writeln(' -g produce gzip file (".nii.gz")');
+  writeln(' -z gz compress images (".nii.gz")');
   writeln(' -v verbose conversion comments');
   writeln('Examples:');
 {$IFDEF UNIX}
@@ -73,7 +73,7 @@ begin
                AppendProtocolName := true
             else if AnsiPos('-s', cmd) = 1 then
                  AppendSeriesTypeID := true
-            else if AnsiPos('-g', cmd) = 1 then
+            else if AnsiPos('-z', cmd) = 1 then
                  CompressFile := true
             else if (AnsiPos('-o', cmd) = 1) and (i <= (ParamCount-1)) then begin
                outFname := ParamStr(i);
