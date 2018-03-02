@@ -1,6 +1,6 @@
 ##### Introduction
 
-This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. While every attempt has been made to provide robust support, the ParaVision format is inherently complicated, poorly documented, and has included explicit errors. Users should use any conversion tools with caution and encourage the vendor to directly support simpler formats (e.g. creating a NIfTI "hdr" header file when the Paravision files are generated could be done seamlessly and would greatly aid customers). As a professional company, Bruker has an obligation and incentive to help users access their data. Variations of this project have existed since 1999, and yet the situation has not improved.
+This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. While every attempt has been made to provide robust support, the ParaVision format is inherently complicated, contradictory, poorly documented, and has included explicit errors. One is left wondering if this format is intentionally obfuscated. New versions have defined features and added new features that appear to conflict with existing older features. Therefore, it is often unclear what the correct solution is, and different tools (see links below) may provide different solutions. Users should use any Bruker conversion tools with extreme caution and encourage the vendor to directly support simpler formats (e.g. creating a NIfTI "hdr" header file when the Paravision files are generated could be done seamlessly and would greatly aid customers). As a professional company, Bruker has an obligation and incentive to help users access their data. Variations of this project have existed since 1999, and yet the situation has not improved. Any customer considering purchasing equipment or services from this company should demand they develop a cleaner, more transparent solution that will reduce costs in terms of support and potentially erroneous results.
 
 This project includes both a drag-and-drop graphical interface (Bru2Nii) as well as a command line tool (Bru2). The compiled tools run on Windows, Linux and OSX without requiring any other files to be installed. The source code can be built using Lazarus without any other tools required. This project is inspired by the Perl script pvconv (http://pvconv.sourceforge.net).
 
@@ -67,7 +67,7 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 Being inspired by a Perl script we maintain the same license (http://dev.perl.org/licenses/) as the original pvconv project.
 
 ##### Links
-
+ * [mrtrix3 convert_bruker](https://github.com/MRtrix3/mrtrix3/blob/5b5ef203090fe8c615a7f35708422a50cc89eb00/bin/convert_bruker).
  * [bruker2nifti_qa](https://gitlab.com/naveau/bruker2nifti_qa/tree/master) provides sample Bruker datasets to validate conversion.
  * [bruker2nifti](https://github.com/SebastianoF/bruker2nifti) is a scriptable Python tool for conversion.
  * [Bruker2nifti](https://github.com/CristinaChavarrias/Bruker2nifti) is a scriptable Matlab tool for conversion.

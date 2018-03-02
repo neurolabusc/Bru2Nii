@@ -30,6 +30,9 @@
               <UseAnsiStrings Value="False"/>
             </SyntaxOptions>
           </Parsing>
+          <CodeGeneration>
+            <TargetCPU Value="x86_64"/>
+          </CodeGeneration>
           <Linking>
             <Debugging>
               <GenerateDebugInfo Value="False"/>

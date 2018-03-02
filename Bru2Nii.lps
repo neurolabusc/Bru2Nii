@@ -2,6 +2,7 @@
 <CONFIG>
   <ProjectSession>
     <Version Value="10"/>
+    <BuildModes Active="MacOS"/>
     <Units Count="7">
       <Unit0>
         <Filename Value="Bru2Nii.lpr"/>
@@ -33,14 +34,14 @@
         <Filename Value="convert.pas"/>
         <TopLine Value="119"/>
         <CursorPos Y="142"/>
-        <UsageCount Value="12"/>
+        <UsageCount Value="11"/>
       </Unit3>
       <Unit4>
         <Filename Value="common.inc"/>
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="2"/>
-        <TopLine Value="868"/>
-        <CursorPos X="5" Y="876"/>
+        <TopLine Value="1184"/>
+        <CursorPos X="3" Y="1200"/>
         <UsageCount Value="106"/>
         <Loaded Value="True"/>
       </Unit4>
@@ -58,130 +59,130 @@
         <EditorIndex Value="3"/>
         <TopLine Value="2"/>
         <CursorPos X="13" Y="26"/>
-        <UsageCount Value="17"/>
+        <UsageCount Value="24"/>
         <Loaded Value="True"/>
       </Unit6>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="common.inc"/>
-        <Caret Line="651" Column="5" TopLine="642"/>
+        <Caret Line="3" Column="94"/>
       </Position1>
       <Position2>
         <Filename Value="common.inc"/>
-        <Caret Line="657" Column="62" TopLine="642"/>
+        <Caret Line="33" Column="25" TopLine="16"/>
       </Position2>
       <Position3>
         <Filename Value="common.inc"/>
-        <Caret Line="787" Column="163" TopLine="771"/>
+        <Caret Line="327" Column="33" TopLine="311"/>
       </Position3>
       <Position4>
         <Filename Value="common.inc"/>
-        <Caret Line="991" Column="35" TopLine="975"/>
+        <Caret Line="624" Column="32" TopLine="620"/>
       </Position4>
       <Position5>
         <Filename Value="common.inc"/>
-        <Caret Line="992" Column="32" TopLine="976"/>
+        <Caret Line="626" Column="32" TopLine="620"/>
       </Position5>
       <Position6>
         <Filename Value="common.inc"/>
-        <Caret Line="993" Column="32" TopLine="977"/>
+        <Caret Line="658" Column="62" TopLine="642"/>
       </Position6>
       <Position7>
         <Filename Value="common.inc"/>
-        <Caret Line="994" Column="77" TopLine="978"/>
+        <Caret Line="788" Column="163" TopLine="772"/>
       </Position7>
       <Position8>
         <Filename Value="common.inc"/>
-        <Caret Line="997" Column="32" TopLine="981"/>
+        <Caret Line="985" Column="117" TopLine="969"/>
       </Position8>
       <Position9>
         <Filename Value="common.inc"/>
-        <Caret Line="990" Column="83" TopLine="983"/>
+        <Caret Line="987" Column="53" TopLine="971"/>
       </Position9>
       <Position10>
         <Filename Value="common.inc"/>
-        <Caret Line="3" Column="94"/>
+        <Caret Line="989" Column="43" TopLine="973"/>
       </Position10>
       <Position11>
         <Filename Value="common.inc"/>
-        <Caret Line="33" Column="25" TopLine="16"/>
+        <Caret Line="978" Column="3" TopLine="972"/>
       </Position11>
       <Position12>
         <Filename Value="common.inc"/>
-        <Caret Line="327" Column="33" TopLine="311"/>
+        <Caret Line="35" Column="103" TopLine="25"/>
       </Position12>
       <Position13>
         <Filename Value="common.inc"/>
-        <Caret Line="624" Column="32" TopLine="620"/>
+        <Caret Line="473" Column="33" TopLine="456"/>
       </Position13>
       <Position14>
         <Filename Value="common.inc"/>
-        <Caret Line="626" Column="32" TopLine="620"/>
+        <Caret Line="521" Column="49" TopLine="505"/>
       </Position14>
       <Position15>
         <Filename Value="common.inc"/>
-        <Caret Line="658" Column="62" TopLine="642"/>
+        <Caret Line="761" Column="19" TopLine="744"/>
       </Position15>
       <Position16>
         <Filename Value="common.inc"/>
-        <Caret Line="788" Column="163" TopLine="772"/>
+        <Caret Line="817" Column="19" TopLine="800"/>
       </Position16>
       <Position17>
         <Filename Value="common.inc"/>
-        <Caret Line="985" Column="117" TopLine="969"/>
+        <Caret Line="935" Column="11" TopLine="919"/>
       </Position17>
       <Position18>
         <Filename Value="common.inc"/>
-        <Caret Line="987" Column="53" TopLine="971"/>
+        <Caret Line="936" Column="11" TopLine="920"/>
       </Position18>
       <Position19>
         <Filename Value="common.inc"/>
-        <Caret Line="989" Column="43" TopLine="973"/>
+        <Caret Line="937" Column="11" TopLine="921"/>
       </Position19>
       <Position20>
         <Filename Value="common.inc"/>
-        <Caret Line="978" Column="3" TopLine="972"/>
+        <Caret Line="938" Column="11" TopLine="922"/>
       </Position20>
       <Position21>
         <Filename Value="common.inc"/>
-        <Caret Line="35" Column="103" TopLine="25"/>
+        <Caret Line="939" Column="11" TopLine="923"/>
       </Position21>
       <Position22>
         <Filename Value="common.inc"/>
-        <Caret Line="473" Column="33" TopLine="456"/>
+        <Caret Line="827" TopLine="818"/>
       </Position22>
       <Position23>
         <Filename Value="common.inc"/>
-        <Caret Line="521" Column="49" TopLine="505"/>
+        <Caret Line="828" Column="21" TopLine="818"/>
       </Position23>
       <Position24>
         <Filename Value="common.inc"/>
-        <Caret Line="761" Column="19" TopLine="744"/>
+        <Caret Line="1313" Column="17" TopLine="1295"/>
       </Position24>
       <Position25>
         <Filename Value="common.inc"/>
-        <Caret Line="817" Column="19" TopLine="800"/>
+        <Caret Line="1319" Column="9" TopLine="1301"/>
       </Position25>
       <Position26>
         <Filename Value="common.inc"/>
-        <Caret Line="935" Column="11" TopLine="919"/>
+        <Caret Line="1248" Column="24" TopLine="1230"/>
       </Position26>
       <Position27>
         <Filename Value="common.inc"/>
-        <Caret Line="936" Column="11" TopLine="920"/>
+        <Caret Line="1229" Column="46" TopLine="1216"/>
       </Position27>
       <Position28>
         <Filename Value="common.inc"/>
-        <Caret Line="937" Column="11" TopLine="921"/>
+        <Caret Line="1248" Column="49" TopLine="1236"/>
       </Position28>
       <Position29>
         <Filename Value="common.inc"/>
-        <Caret Line="938" Column="11" TopLine="922"/>
+        <Caret Line="1321" Column="57" TopLine="1299"/>
       </Position29>
       <Position30>
         <Filename Value="common.inc"/>
-        <Caret Line="939" Column="11" TopLine="923"/>
+        <Caret Line="1244" Column="10" TopLine="1231"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

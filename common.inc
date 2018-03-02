@@ -24,7 +24,7 @@ type
   TVecN = array of single;
   TMat = array[1..4, 1..4] of double;
   TBrukerHdr = Record
-    RECO_reco_exists, RECO_byte_order_little, RECO_transposition_varies, VISU_IsDerived, VISU_visu_exists: boolean;
+    RECO_reco_exists, RECO_byte_order_little, RECO_transposition_varies, VISU_IsBiped, VISU_IsDerived, VISU_visu_exists: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
     ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
     VISU_Slice_Order, VISU_ExperimentNumber, VISU_ProcessingNumber: integer;
@@ -334,6 +334,7 @@ begin
      result.VISU_ExperimentNumber := 0;
      result.VISU_ProcessingNumber := 0;
      result.VISU_IsDerived := false;
+     result.VISU_IsBiped:= false;
      result.VISU_visu_exists := false;
      result.VISU_Slice_Order:= 1;
      setlength(result.VISU_Scaling,0);
@@ -592,6 +593,8 @@ begin
         if AnsiPos('##$VisuSubjectPosition=', lStr) = 1 then begin
            BrHdr.VISU_SubjectPosition := trim(RightStr(lStr, length(lStr)-AnsiPos('=', lStr)));
         end;
+        if AnsiPos('##$VisuSubjectType=Biped', lStr) = 1 then
+           BrHdr.VISU_IsBiped:= true;
         if AnsiPos('##$VisuSeriesTypeId', lStr) = 1 then begin
            BrHdr.VISU_SeriesTypeId :=  BrGetString(lFile);
            //SeriesTypeId begins with "ACQ_" (e.g. "ACQ_BRUKER_PVM") for raw data and "DERIVED_" (e.g. "DERIVED_ISA") for derived data
@@ -821,7 +824,6 @@ begin
     +f2str(mt[2,1])+' '+f2str(mt[2,2])+' '+f2str(mt[2,3])+' '+f2str(mt[2,4])+'; '
     +f2str(mt[3,1])+' '+f2str(mt[3,2])+' '+f2str(mt[3,3])+' '+f2str(mt[3,4])+'; 0, 0, 0, 1] ');
 end;
-
 
 procedure BrMat_VISU (BrHdr: TBrukerHdr; var NiHdr: TNiHdr; lFOVx10, lVerbose: boolean);
 var
@@ -1183,6 +1185,7 @@ begin
   end;
   xyVox := NiHdr.dim[1]*NiHdr.dim[2];
   ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
+  showmessage(inttostr(ImgBytes));
   getmem(i8in, ImgBytes);
   Move(p^,i8in^,ImgBytes);//src, dest, bytes
   i16in := i16p0(i8in);
