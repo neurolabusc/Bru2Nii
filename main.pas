@@ -5,6 +5,7 @@ unit main;
 interface
 
 uses
+ {$ifdef fpc} ZStream,{$endif}
  {$ifndef fpc} ShellAPI,messages, strutils, {$endif}
   SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
   StdCtrls, ExtCtrls,  Process, strutils,
@@ -54,7 +55,7 @@ end;
 
 procedure TForm1.ConvertFile(FName: string);
 begin
-   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked);
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked, false);
 end;
 
 procedure TForm1.ConvertBtnClick(Sender: TObject);

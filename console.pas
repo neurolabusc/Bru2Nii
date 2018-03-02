@@ -5,7 +5,8 @@ interface
 implementation
 
 uses
- strutils,Classes,SysUtils, mat, ZStream;
+ {$IFDEF FPC}ZStream, {$ENDIF}
+ strutils,Classes,SysUtils, mat;
 
 procedure Showmsg(lStr: string);
 begin
@@ -29,7 +30,7 @@ begin
   writeln(' -o output filename');
   writeln(' -p append protocol name to output filename');
   writeln(' -s append series type ID to output filename');
-  writeln(' -z gz compress images (".nii.gz")');
+  {$IFDEF FPC}writeln(' -z gz compress images (".nii.gz")');{$ENDIF}
   writeln(' -v verbose conversion comments');
   writeln('Examples:');
 {$IFDEF UNIX}
@@ -85,6 +86,12 @@ begin
           end else
               inFname := cmd;
     end;
+    {$IFNDEF FPC}
+    if CompressFile then begin
+    	showmsg('Unable to compress images (solution: recompile with freepascal)');
+    	exit;
+    end;
+    {$ENDIF}
     BrConvertBatch (inFname, outFname, FOVx10, Verbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID, CompressFile);
 end;
 

@@ -458,7 +458,7 @@ begin
      for i := 0 to (N-1) do
          Read(lFile, lRA[i]);
      readln(lFile);
-     //showmessage(inttostr(N));
+     //showmsg(inttostr(N));
 end;
 
 function BrGetInt (var lStr: string): integer;
@@ -511,7 +511,7 @@ begin
        j := PosEx(',',lOrderStr,i);
        if (j > 0) and (n < 10) then begin
           inc(n);
-          //showmessage(trim(Copy(lOrderStr, i+1,j-i-1)));
+          //showmsg(trim(Copy(lOrderStr, i+1,j-i-1)));
           lRA.v[n] := strtointdef(trim(Copy(lOrderStr, i+1,j-i-1)),1);
        end;
        i := PosEx('(',lOrderStr,j);
@@ -1001,7 +1001,7 @@ begin
     (*if (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.METHOD_slice_distance) or
       (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_sepn.v[1]) or
       (BrHdr.METHOD_PVM_SpatResol.v[3] <> BrHdr.ACQ_slice_thick) then begin
-        showmessage(format('%s %g %g %g %g!',[FName,BrHdr.METHOD_PVM_SpatResol.v[3],BrHdr.METHOD_slice_distance,
+        showmsg(format('%s %g %g %g %g!',[FName,BrHdr.METHOD_PVM_SpatResol.v[3],BrHdr.METHOD_slice_distance,
           BrHdr.ACQ_slice_sepn.v[1], BrHdr.ACQ_slice_thick ]));
       end;*)
     if BrHdr.METHOD_PVM_SpatResol.v[3] > 0 then //4/2016: Suggested and validated by Chern-Chyi Yen
@@ -1185,7 +1185,7 @@ begin
   end;
   xyVox := NiHdr.dim[1]*NiHdr.dim[2];
   ImgBytesOut := xyVox*nslices*4; //we need to save as 32-bit float
-  showmessage(inttostr(ImgBytes));
+  //showmsg(inttostr(ImgBytes));
   getmem(i8in, ImgBytes);
   Move(p^,i8in^,ImgBytes);//src, dest, bytes
   i16in := i16p0(i8in);
@@ -1223,7 +1223,7 @@ procedure CpyImg (lRawFName, lNiiFName: string; var ImgBytes: integer; var BrHdr
 //copy image data from Bruker 2dseq file to NIfTI .nii file: forces native byte order
 var
   lOutF,lInF: File of byte;
-  lOutGZF: TGZFileStream;
+  {$IFDEF FPC}lOutGZF: TGZFileStream;{$ENDIF}
   p: Pointer;
 begin
   showmsg('lNiiFName:' + lNiiFName);
@@ -1247,21 +1247,22 @@ begin
   Rescale(p, ImgBytes, BrHdr, lNiHdr);
   if BrHdr.VISU_Slice_Order > 1 then //suggested by Mikaël Naveau
     SwapDimsZT(p, ImgBytes, lNiHdr, BrHdr);
-  if gz then
-    begin
+  if gz then begin
+    {$IFNDEF FPC}
+  	showmsg('lDelphi does not support gzip' + lNiiFName);
+    {$ELSE}
     lOutGZF := TGZFileStream.Create(lNiiFName,gzOpenWrite);
     lOutGZF.write(lNiHdr, sizeof(TNiHdr));
     lOutGZF.write(p^, ImgBytes);
     lOutGZF.destroy;
-    end
-  else
-    begin
+    {$ENDIF}
+  end else begin
     AssignFile(lOutF, lNiiFName);
     Rewrite(lOutF,1);
     BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
     BlockWrite(lOutF, p^, ImgBytes);
     CloseFile(lOutF);
-    end;
+  end;
   freemem(p, ImgBytes);
 end;
 
@@ -1315,7 +1316,7 @@ begin
     if (AppendSeriesTypeId)  then
        lOutFName := AppendFName(lOutFName, BrHdr.VISU_SeriesTypeId);
   end;
-  if CompressFile then 
+  if CompressFile then
     lOutFName := changefileext(lOutFName,'.nii.gz')
   else
     lOutFName := changefileext(lOutFName,'.nii');
