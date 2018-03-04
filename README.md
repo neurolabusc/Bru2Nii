@@ -35,6 +35,9 @@ Drag and drop the Bruker 'acqp' or 'subject' file you wish to convert.
 
 ##### Versions
 
+3March2018 : v 1.0.20180303
+ - [Option to create compressed (.nii.gz) files](https://github.com/neurolabusc/Bru2Nii/issues/19).
+
 19July2017 : v1.0.20170719
  - Uses [visu_pars](https://github.com/neurolabusc/Bru2Nii/issues/12) file to detect data precision, slice order and adds ability to include Series Type ID in filename.
  - Convert [multiple-echo RARE sequences](https://github.com/neurolabusc/Bru2Nii/pull/11).

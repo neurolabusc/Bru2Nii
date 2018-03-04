@@ -5,16 +5,16 @@ unit main;
 interface
 
 uses
- {$ifdef fpc} ZStream,{$endif}
+ {$ifdef fpc} Process, strutils, FileUtil, ZStream, {$endif}
  {$ifndef fpc} ShellAPI,messages, strutils, {$endif}
-  SysUtils, FileUtil, Forms, Controls, Dialogs, Buttons,
-  StdCtrls, ExtCtrls,  Process, strutils,
-  Classes, mat;
+  SysUtils, Forms, Controls, Dialogs, Buttons,
+  StdCtrls, ExtCtrls, Classes, mat;
 type
   { TForm1 }
   TForm1 = class(TForm)
     AppendSeriesTypeIDCheck: TCheckBox;
-    Button1: TButton;
+    CompressFileCheck: TCheckBox;
+    ConvertBtn: TButton;
     ConvertLabel: TLabel;
     FOVx10Check: TCheckBox;
     OnlyConvert3DCheck: TCheckBox;
@@ -55,7 +55,11 @@ end;
 
 procedure TForm1.ConvertFile(FName: string);
 begin
+   {$ifdef fpc}
+   BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked, CompressFileCheck.checked);
+   {$else}
    BrConvertBatch (FName,'', FOVx10Check.checked, VerboseCheck.Checked, OnlyConvert3DCheck.Checked, AppendProtocolNameCheck.Checked, AppendSeriesTypeIDCheck.Checked, false);
+   {$endif}
 end;
 
 procedure TForm1.ConvertBtnClick(Sender: TObject);
@@ -69,9 +73,13 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     DefaultFormatSettings.DecimalSeparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
      Showmsg(kVers);
-     {$ifndef fpc} DragAcceptFiles(Handle, True); {$endif}
+     {$ifdef fpc}
+     DefaultFormatSettings.DecimalSeparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
+     {$else}
+     DragAcceptFiles(Handle, True);
+     DecimalSeparator := '.';  //e.g. German users write "1,23", but Bruker requires "1.23"
+     {$endif}
 end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of String);

@@ -1,6 +1,6 @@
 
 const
-kVers = 'Bruker2NIfTI v1.0.20170719 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
+kVers = 'Bruker2NIfTI v1.0.20180303 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
 {$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
 {$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}
@@ -401,7 +401,7 @@ function BrGetProd(s: string): integer;
 //##$PVM_NAverages=23 -> 23
 var
    i,j: integer;
-   t: string;
+   //t: string;
 begin
      result := 0;
      i := LastDelimiter('(',s);
@@ -478,10 +478,11 @@ end;
 function BrGetString (var lFile: TextFile): string;
 //extract string from Bruker header file, e.g. "<T1 localizer>" becomes "T1_localizer"
 const
-  InvalidChars : set of char =
-    [',','.','/','!','@','#','$','%','^','&','*','''','"',';','_','(',')',':','|','[',']'];
+  n = 21;
+  InvalidChars : array[1..n] of char =
+    (',','.','/','!','@','#','$','%','^','&','*','''','"',';','_','(',')',':','|','[',']');
 var
-   c: char;
+   i: integer;
 begin
      result := '';
      if Eof(lFile) then exit;
@@ -489,8 +490,9 @@ begin
      result  := StringReplace(result, '<', '',  [rfReplaceAll, rfIgnoreCase]);
      result  := StringReplace(result, '>', '',  [rfReplaceAll, rfIgnoreCase]);
      //next: remove symbols that are incompatible or confusing with a filename
-     for c in InvalidChars do
-         result  := StringReplace(result, c, '_',  [rfReplaceAll, rfIgnoreCase])
+     //for c in InvalidChars do
+     for i := 1 to n do
+         result  := StringReplace(result, InvalidChars[i], '_',  [rfReplaceAll, rfIgnoreCase])
 end;
 
 function Slice_Order(lOrderStr: string; var lRA: TVec): integer;
@@ -1108,7 +1110,7 @@ type
     ByteRA0 = array [0..0] of byte;
     Bytep0 = ^ByteRA0;
 var
-    post, pre, xyBytes, xyzBytes, z, t, posIn, posOut, nDim, nDimNotZ, nSlices,nSlicesIn, nSlicesPreZ: integer;
+    post, pre, xyBytes, xyzBytes, z, posIn, posOut, nDim, nDimNotZ, nSlices,nSlicesIn, nSlicesPreZ: integer;
     pIn, pOut: Bytep0;
 begin
      //NIfTI requires time is faster changing element
@@ -1155,6 +1157,10 @@ end;
 
 procedure Rescale(var p: pointer; var ImgBytes: integer; var BrHdr: TBrukerHdr; var NiHdr: TNiHdr);
 type
+{$ifndef fpc}
+  int32 = LongInt;
+  int16 = SmallInt;
+{$endif}
    f32 = array [0..0] of single;
    f32p0 = ^f32;
    i32 = array [0..0] of int32;
@@ -1169,8 +1175,9 @@ var
    i32in: i32p0;
    f32out: f32p0;
    nslices: integer;
-   isVaries: boolean = false;
+   isVaries: boolean;
 begin
+  isVaries := false;
   if (ImgBytes < 1) or (length(BrHdr.VISU_Intercept) < 1) or (length(BrHdr.VISU_Scaling) < 1) or (length(BrHdr.VISU_Intercept) <> length(BrHdr.VISU_Scaling)) then exit;
   nslices := NiHdr.dim[3] * NiHdr.dim[4];
   if (nslices <> length(BrHdr.VISU_Intercept)) then exit;
@@ -1258,7 +1265,7 @@ begin
     {$ENDIF}
   end else begin
     AssignFile(lOutF, lNiiFName);
-    Rewrite(lOutF,1);
+    {$ifdef fpc}Rewrite(lOutF,1);{$else}Rewrite(lOutF);{$endif} //should not matter: file of byte
     BlockWrite(lOutF,lNiHdr, sizeof(TNiHdr));
     BlockWrite(lOutF, p^, ImgBytes);
     CloseFile(lOutF);
@@ -1278,8 +1285,9 @@ var
     BrHdr: TBrukerHdr;
     NiHdr: TNiHdr;
     ImgBytes: integer;
-    ForceSFormFromReco: boolean = true;//if false : experimental support for matrices from visu file
+    ForceSFormFromReco: boolean;//if false : experimental support for matrices from visu file
 begin
+  ForceSFormFromReco := true;
   BrHdr := BrClear;
   lBaseDir := extractfilepath(lDirStr);
   BrFindFile(lBaseDir,lAcqpFName,'acqp',false,'','');
@@ -1358,8 +1366,9 @@ end;
 
 procedure BrConvertBatch (FName, OutFName: string; FOVx10, lVerbose, OnlyConvert3D, AppendProtocolName, AppendSeriesTypeID: boolean; CompressFile: boolean);
 var
-  nOK: integer = 0;
+  nOK: integer;
 begin
+  nOK := 0;
   showmsg(kVers);
   if not DirectoryExists(FName) then
     FName := ExtractFilePath(FName);

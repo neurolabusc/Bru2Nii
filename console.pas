@@ -96,7 +96,11 @@ begin
 end;
 
 begin
+  {$ifdef fpc}
   DefaultFormatSettings.DecimalSeparator := '.'; //Bruker will write real numbers as 1.23 not 1,23
+  {$else}
+  DecimalSeparator := '.';
+  {$endif}
   if (ParamCount = 0)  then
      WriteHelp
   else
