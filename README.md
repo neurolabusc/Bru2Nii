@@ -76,7 +76,10 @@ Being inspired by a Perl script we maintain the same license (http://dev.perl.or
  * [Bruker2nifti](https://github.com/CristinaChavarrias/Bruker2nifti) is a scriptable Matlab tool for conversion.
  * [pvconv](http://pvconv.sourceforge.net) converts Bruker data to the older Analyze format (and therefore does not retain spatial orientation information). [github page](https://github.com/matthew-brett/pvconv).
  * [Bruker2Analyze](http://www.mccauslandcenter.sc.edu/mricro/mricro/bru2anz/) is another Bruker to Analyze conversion tool.
+  * [dicomifier can convert Bruker to DICOM and then DICOM to NIfTI](https://github.com/lamyj/dicomifier).
  * Matthew Brett notes that the example Bruker data text files report themselves as being in [JCAMP-DX
 +format](http://jcamp-dx.org/). In particular, the example files say they are in JCAMP-DX [4.24 format](http://jcamp-dx.org/protocols/dxir01.pdf).
  * [dsi-studio](http://dsi-studio.labsolver.org/Manual/Parse-DICOM) can extract diffusion directions from Bruker datasets.
+ * [nanconvert uses ITK's convert Bruker 2dseq to other formats supported by ITK](https://github.com/spinicist/nanconvert) (including NIfTI).
+
  * [mriutil](http://www.pennstatehershey.org/web/nmrlab/resources/software/mriutil) can view Bruker images without needing to convert them.
