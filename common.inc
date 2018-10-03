@@ -1,6 +1,6 @@
 
 const
-kVers = 'Bruker2NIfTI v1.0.20180303 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
+kVers = 'Bruker2NIfTI v1.0.20180909 : by Matthew Brett, Andrew Janke, Mikaël Naveau, Chris Rorden.'
 {$IFDEF LCLcocoa} + ' Cocoa' {$ENDIF}
 {$IFDEF LCLcarbon} + ' Carbon' {$ENDIF}
 {$IFDEF LCLGTK2} + ' GTK2' {$ENDIF}
@@ -26,7 +26,7 @@ type
   TBrukerHdr = Record
     RECO_reco_exists, RECO_byte_order_little, RECO_transposition_varies, VISU_IsBiped, VISU_IsDerived, VISU_visu_exists: boolean;
     RECO_transposition, RECO_wordtype_bits, ACQ_ns_list_size, ACQ_nr_completed,
-    ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
+    ACQ_NR, ACQ_NI, ACQ_NSLICES, METHOD_NSegments, METHOD_PVM_ObjOrderScheme, ACQ_n_echo_images,
     VISU_Slice_Order, VISU_ExperimentNumber, VISU_ProcessingNumber: integer;
     RECO_map_offset, RECO_map_slope,   ACQ_RG, ACQ_slice_thick,ACQ_read_offset,
     ACQ_phase1_offset, METHOD_slice_offset, METHOD_slice_distance: single;
@@ -313,6 +313,7 @@ begin
      result.ACQ_read_offset := 0;
      result.ACQ_phase1_offset := 0;
      result.METHOD_slice_offset := 0;
+     result.METHOD_NSegments := 0;
      result.METHOD_PVM_ObjOrderScheme:= 0; //slice order unknown
      result.METHOD_slice_distance := 0;
      result.RECO_size:= BrVecZero;
@@ -399,9 +400,9 @@ function BrGetProd(s: string): integer;
 //##$VisuCorePosition=( 1, 3 ) -> 3
 //##$PVM_Nucleus1=( 8 ) -> 8
 //##$PVM_NAverages=23 -> 23
+//##$NSegments=2 -> 2
 var
    i,j: integer;
-   //t: string;
 begin
      result := 0;
      i := LastDelimiter('(',s);
@@ -411,7 +412,7 @@ begin
         exit;
      result := 1;
      i := i + 1;
-     while i < length(s) do begin
+     while i <= length(s) do begin
        j := PosEx(',',s,i);
        if j < 1 then
           j := PosEx(')',s,i);
@@ -659,6 +660,8 @@ begin
            if AnsiPos('Interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 3;
            if AnsiPos('Reverse_interlaced', lStr) <> 0 then BrHdr.METHOD_PVM_ObjOrderScheme  := 4;
         end;
+        if AnsiPos('##$NSegments', lStr) = 1 then
+          BrHdr.METHOD_NSegments := BrGetProd(lStr);
         if AnsiPos('##$PVM_SpatReso', lStr) = 1 then
            BrGetArray(lFile, lStr, BrHdr.METHOD_PVM_SpatResol);
         if (AnsiPos('##$PVM_Matrix=', lStr) = 1) then
@@ -1023,6 +1026,8 @@ begin
     end;
   end;
   NiHdr.pixdim[4] := BrHdr.ACQ_repetition_time.v[1]/1000; //convert from msec to sec
+  if (BrHdr.METHOD_NSegments > 1) then
+  	NiHdr.pixdim[4] := NiHdr.pixdim[4] * BrHdr.METHOD_NSegments;
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NSLICES > 0) and (BrHdr.ACQ_NR <= 1) and ((BrHdr.ACQ_NI mod BrHdr.ACQ_NSLICES) = 0) then
      NiHdr.dim[3] :=  BrHdr.ACQ_NSLICES;
   if (NiHdr.dim[3] < 2) and (BrHdr.ACQ_NI > 1) then
@@ -1233,7 +1238,7 @@ var
   {$IFDEF FPC}lOutGZF: TGZFileStream;{$ENDIF}
   p: Pointer;
 begin
-  showmsg('lNiiFName:' + lNiiFName);
+  showmsg('NIfTI_Name:' + lNiiFName);
   getmem(p, ImgBytes);
   FileMode := 0; //Set file access to read only
   AssignFile(lInF, lRawFName);
