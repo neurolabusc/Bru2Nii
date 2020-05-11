@@ -1,6 +1,7 @@
 ##### Introduction
 
-**This software is no longer actively maintained. Please use Bruker's own [ParaVision 360](https://github.com/neurolabusc/Bru2Nii/issues/24)**
+**This software is no longer actively maintained. Please use Bruker's own [ParaVision 360](https://github.com/neurolabusc/Bru2Nii/issues/24). You may also want to try [BrkRaw](https://github.com/dvm-shlee/bruker) which is actively maintained (though like all tools only tested an a small proportion of the Bruker files that have changed in undocumented ways over thee years).git
+**
 
 This is a simple tool for converting Bruker ParaVision MRI data to the NIfTI file format. While every attempt has been made to provide robust support, the ParaVision format is inherently complicated, contradictory, poorly documented, and has included explicit errors. One is left wondering if this format is intentionally obfuscated. New versions have defined features and added new features that appear to conflict with existing older features. Therefore, it is often unclear what the correct solution is, and different tools (see links below) may provide different solutions. Users should use any Bruker conversion tools with extreme caution and encourage the vendor to directly support simpler formats (e.g. creating a NIfTI "hdr" header file when the Paravision files are generated could be done seamlessly and would greatly aid customers). As a professional company, Bruker has an obligation and incentive to help users access their data. Variations of this project have existed since 1999, and yet the situation has not improved. Any customer considering purchasing equipment or services from this company should demand they develop a cleaner, more transparent solution that will reduce costs in terms of support and potentially erroneous results.
 
@@ -50,6 +51,7 @@ Being inspired by a Perl script we maintain the same license (http://dev.perl.or
 
 ##### Links
  * Bruker [ParaVision 360](https://github.com/neurolabusc/Bru2Nii/issues/24) supports NIfTI export.
+ * [BrkRaw](https://github.com/dvm-shlee/bruker) is a comprehensive tool to access Bruker PV datasets.
  * [mrtrix3 convert_bruker](https://github.com/MRtrix3/mrtrix3/blob/5b5ef203090fe8c615a7f35708422a50cc89eb00/bin/convert_bruker).
  * [bruker2nifti_qa](https://gitlab.com/naveau/bruker2nifti_qa/tree/master) provides sample Bruker datasets to validate conversion.
  * [bruker2nifti](https://github.com/SebastianoF/bruker2nifti) is a scriptable Python tool for conversion.
